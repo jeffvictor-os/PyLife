@@ -6,6 +6,7 @@ Created on Feb 1, 2018
 
 import wx
 import wx.grid
+import csv
 
 
 NUMROWS=40
@@ -30,8 +31,11 @@ class lifeFrame(wx.Frame):
         menuBar = wx.MenuBar()
 
         fileMenu = wx.Menu()
-        exitMenuItem = fileMenu.Append(wx.NewId(), "Exit", "Exit Life")
         menuBar.Append(fileMenu, "&File")
+        loadMenuItem = fileMenu.Append(wx.NewId(), "Load...", "Load a file")
+        self.Bind(wx.EVT_MENU, self.onMenuLoad, loadMenuItem)
+ 
+        exitMenuItem = fileMenu.Append(wx.NewId(), "Exit", "Exit Life")
         self.Bind(wx.EVT_MENU, self.onExit, exitMenuItem)
 
         helpMenu = wx.Menu()
@@ -81,6 +85,7 @@ class lifeFrame(wx.Frame):
         self.oneStepSizer.Add(self.oneStepBtn, 0, wx.ALL, 0)
         self.ctrlSizer.Add(self.oneStepSizer, 0,       wx.ALL|wx.CENTER, 5)
  
+ 
         # Top level sizer.
         self.SetSizer(self.mainSizer)
         self.mainSizer.Fit(self)
@@ -109,6 +114,42 @@ class lifeFrame(wx.Frame):
             for col in range(NUMCOLS):
                 self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])
         self.reportStats(numSteps, numAlive, 0)
+
+    def onMenuLoad(self, event):
+        with wx.FileDialog(self, "Open CSV file", wildcard="CSV files (*.csv)|*.csv",
+                           style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
+
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return     # the user changed their mind
+
+            # Proceed loading the file chosen by the user
+            pathname = fileDialog.GetPath()
+            try:
+                with open(pathname, 'r') as loadFile:
+                    self.loadDatafromFile(loadFile)
+                self.reportMessage("The file has been loaded.")
+                self.reportStats(0, numAlive, 0)
+            except IOError:
+                self.reportmessage(format("Cannot open file '%s'." % pathname))
+
+    def loadDatafromFile(self, loadFile):
+        global numAlive
+        numAlive=0
+        rownum=-1
+        lreader = csv.reader(loadFile)
+        for row in lreader:
+            rownum +=1
+            if rownum>=NUMROWS:   # Safely handle oversized files.
+                break;
+            for col in range(NUMCOLS):
+                self.lGrid.curMatrix[rownum][col]='' # Default value...
+                if col<len(row):                     # ..handles undersized lines.
+                    if row[col] != '0':
+                        if row[col]==AC:
+                          numAlive+=1
+                          self.lGrid.curMatrix[rownum][col]=row[col]
+                self.lGrid.SetCellValue(rownum, col, self.lGrid.curMatrix[rownum][col])
+
 
         
 # Small utility functions

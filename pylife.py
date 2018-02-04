@@ -115,6 +115,7 @@ class lifeFrame(wx.Frame):
                 self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])
         self.reportStats(numSteps, numAlive, 0)
 
+
     def onMenuLoad(self, event):
         with wx.FileDialog(self, "Open CSV file", wildcard="CSV files (*.csv)|*.csv",
                            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:

@@ -36,7 +36,6 @@ class TestInitUI(unittest.TestCase):
         mat[2][1]=AC
         mat[2][2]=AC
         mat[2][3]=AC
-        print mat[2][1]+mat[2][2]+mat[2][3]
         pylife.lifeStep(mat)
         self.assertEqual(mat[1][1],EC)
         self.assertEqual(mat[1][2],AC)
@@ -47,8 +46,20 @@ class TestInitUI(unittest.TestCase):
         self.assertEqual(mat[3][1],EC)
         self.assertEqual(mat[3][2],AC)
         self.assertEqual(mat[3][3],EC)
-        print mat[2][1]+mat[2][2]+mat[2][3]
+        
+    def test_loadDataFromFile(self):
+        pathname='loadtest.csv'
+        mat=self.lFrame.lGrid.curMatrix
+        try:
+            with open(pathname, 'r') as loadFile:
+                pylife.lifeFrame.loadDatafromFile(self.lFrame, loadFile)
+            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
+            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+        except IOError:
+            pylife.lifeFrame.reportMessage(self.lFrame, format("Cannot open file '%s'." % pathname))
 
+        self.assertEqual(mat[1][1],EC)
+        self.assertEqual(mat[20][20],AC)
         
 if __name__ == '__main__':
     unittest.main()

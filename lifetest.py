@@ -52,7 +52,7 @@ class TestInitUI(unittest.TestCase):
         mat=self.lFrame.lGrid.curMatrix
         try:
             with open(pathname, 'r') as loadFile:
-                pylife.lifeFrame.loadDatafromFile(self.lFrame, loadFile)
+                pylife.lifeFrame.loadDataFromFile(self.lFrame, loadFile)
             pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
             pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
         except IOError:
@@ -60,6 +60,36 @@ class TestInitUI(unittest.TestCase):
 
         self.assertEqual(mat[1][1],EC)
         self.assertEqual(mat[20][20],AC)
+        
+    def test_saveDataToFile(self):
+        loadpath='loadtest.csv'
+        savepath='/tmp/pylifesavetest.csv'
+        mat=self.lFrame.lGrid.curMatrix
+        try:                                       # First load a known map.
+            with open(loadpath, 'r') as loadFile:
+                pylife.lifeFrame.loadDataFromFile(self.lFrame, loadFile)
+            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
+            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+        except IOError:
+            pylife.lifeFrame.reportMessage(self.lFrame, format("Cannot open file '%s' to load." % loadpath))
+        try:
+            with open(savepath, 'w') as saveFile:
+                pylife.lifeFrame.saveDataToFile(self.lFrame, saveFile)
+            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been saved.")
+            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+        except IOError:
+            pylife.lifeFrame.reportMessage(self.lFrame, format("Cannot open file '%s' to save." % savepath))
+        try:                                       # First *re*load the known map.
+            with open(savepath, 'r') as loadFile:
+                pylife.lifeFrame.loadDataFromFile(self.lFrame, loadFile)
+            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
+            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+        except IOError:
+            pylife.lifeFrame.reportMessage(self.lFrame, format("Cannot open file '%s' to load." % savepath))
+
+        self.assertEqual(mat[1][1],EC)
+        self.assertEqual(mat[20][20],AC)
+        
         
 if __name__ == '__main__':
     unittest.main()

@@ -34,6 +34,9 @@ class lifeFrame(wx.Frame):
         menuBar.Append(fileMenu, "&File")
         loadMenuItem = fileMenu.Append(wx.NewId(), "Load...", "Load a file")
         self.Bind(wx.EVT_MENU, self.onMenuLoad, loadMenuItem)
+        saveMenuItem = fileMenu.Append(wx.NewId(), "Save...", "Save a file")
+        self.Bind(wx.EVT_MENU, self.onMenuSave, saveMenuItem)
+
  
         exitMenuItem = fileMenu.Append(wx.NewId(), "Exit", "Exit Life")
         self.Bind(wx.EVT_MENU, self.onExit, exitMenuItem)
@@ -127,13 +130,13 @@ class lifeFrame(wx.Frame):
             pathname = fileDialog.GetPath()
             try:
                 with open(pathname, 'r') as loadFile:
-                    self.loadDatafromFile(loadFile)
+                    self.loadDataFromFile(loadFile)
                 self.reportMessage("The file has been loaded.")
                 self.reportStats(0, numAlive, 0)
             except IOError:
                 self.reportmessage(format("Cannot open file '%s'." % pathname))
 
-    def loadDatafromFile(self, loadFile):
+    def loadDataFromFile(self, loadFile):
         global numAlive
         numAlive=0
         rownum=-1
@@ -147,10 +150,36 @@ class lifeFrame(wx.Frame):
                 if col<len(row):                     # ..handles undersized lines.
                     if row[col] != '0':
                         if row[col]==AC:
-                          numAlive+=1
-                          self.lGrid.curMatrix[rownum][col]=row[col]
+                            numAlive+=1
+                            self.lGrid.curMatrix[rownum][col]=row[col]
                 self.lGrid.SetCellValue(rownum, col, self.lGrid.curMatrix[rownum][col])
 
+    def onMenuSave(self, event):
+        with wx.FileDialog(self, "Save CSV file", wildcard="CSV files (*.csv)|*.csv",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+
+            if fileDialog.ShowModal() == wx.ID_CANCEL: return
+
+            # save the current contents in the file
+            pathname = fileDialog.GetPath()
+            try:
+                with open(pathname, 'w') as saveFile:
+                    self.saveDataToFile(saveFile)
+                self.reportMessage("The file has been saved.")
+            except IOError:
+                self.reportMessage(format("Cannot save current data in file '%s'." % pathname))
+
+    def saveDataToFile(self, saveFile):
+        swriter = csv.writer(saveFile)
+        # First create a list that represents the row.
+        for rownum in range(NUMROWS):
+            row=[]
+            for colnum in range(NUMCOLS):
+                row.append(self.lGrid.curMatrix[rownum][colnum])
+                if row[-1]=='':
+                    row[-1]='0'
+            # Then write the list as CSV.
+            swriter.writerow(row)
 
         
 # Small utility functions

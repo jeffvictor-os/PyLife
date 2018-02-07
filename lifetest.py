@@ -43,7 +43,7 @@ class TestPyLife(unittest.TestCase):
         mat[2][1]=AC
         mat[2][2]=AC
         mat[2][3]=AC
-        pylife.lifeStep(mat)
+        pylife.lifeStep(mat, self.lFrame.showCorpsesBox.GetValue())
         self.assertEqual(mat[1][1],EC)
         self.assertEqual(mat[1][2],AC)
         self.assertEqual(mat[1][3],EC)
@@ -53,6 +53,9 @@ class TestPyLife(unittest.TestCase):
         self.assertEqual(mat[3][1],EC)
         self.assertEqual(mat[3][2],AC)
         self.assertEqual(mat[3][3],EC)
+        
+        # Verify correct operation of reportMessage()
+        
         
     def test_loadDataFromFile(self):
         # This test loads a known map-file, and verifies that the resulting map is "correct."
@@ -90,14 +93,14 @@ class TestPyLife(unittest.TestCase):
             pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
         except IOError:
             self.fail (format ('Could not open the source file: %s.'%loadpath))
-        try:
+        try:                                       # Then save the map.
             with open(savepath, 'w') as saveFile:
                 pylife.lifeFrame.saveDataToFile(self.lFrame, saveFile)
             pylife.lifeFrame.reportMessage(self.lFrame, "The file has been saved.")
             pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
         except IOError:
             self.fail (format ('Could not open the file to save: %s.'%savepath))
-        try:                                       # First *re*load the known map.
+        try:                                       # Now *re*load the known map.
             with open(savepath, 'r') as loadFile:
                 pylife.lifeFrame.loadDataFromFile(self.lFrame, loadFile)
             pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
@@ -107,6 +110,37 @@ class TestPyLife(unittest.TestCase):
 
         self.assertEqual(mat[1][1],EC)
         self.assertEqual(mat[20][20],AC)
+        
+    def test_onClearGrid(self):
+        mat=self.lFrame.lGrid.curMatrix
+        for x in range(pylife.NUMROWS): 
+            for y in range(pylife.NUMCOLS):
+                mat[x][y]=pylife.AC
+        evt = wx.CommandEvent(wx.EVT_BUTTON.typeId)
+        pylife.lifeFrame.onClearGrid(self.lFrame, evt) 
+        self.assertEqual(mat[1][1],pylife.EC)
+        self.assertEqual(mat[2][3],pylife.EC)
+        self.assertEqual(mat[6][8],pylife.EC) 
+
+    def test_showCorpses(self):
+        AC=pylife.AC
+        DC=pylife.DC
+        EC=pylife.EC
+        mat=self.lFrame.lGrid.curMatrix
+        for x in range(pylife.NUMROWS): 
+            for y in range(pylife.NUMCOLS):
+                mat[x][y]=EC
+        mat[2][1]=AC
+        mat[2][2]=AC
+        mat[2][3]=AC
+        pylife.lifeStep(mat, True)
+        self.assertEqual(mat[1][1],EC)
+        self.assertEqual(mat[2][1],DC)
+        self.assertEqual(mat[2][2],AC)
+        pylife.lifeStep(mat, False)
+        self.assertEqual(mat[1][2],EC)
+        self.assertEqual(mat[2][1],AC)
+        self.assertEqual(mat[3][2],EC)
         
         
 if __name__ == '__main__':

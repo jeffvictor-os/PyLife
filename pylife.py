@@ -14,6 +14,7 @@ NUMCOLS=40
 
 AC='*'   # Alive Cell
 EC=''    # "Empty Cell"
+DC='-'   # Dead Cell
 
 
 numSteps=0
@@ -88,6 +89,15 @@ class lifeFrame(wx.Frame):
         self.oneStepSizer.Add(self.oneStepBtn, 0, wx.ALL, 0)
         self.ctrlSizer.Add(self.oneStepSizer, 0,       wx.ALL|wx.CENTER, 5)
  
+        self.showCorpsesBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, 'Show corpses')
+        self.ctrlSizer.Add(self.showCorpsesBox, 0,      wx.LEFT|wx.ALL, 0)
+
+        self.clearGridBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Clear Grid')
+        self.Bind(wx.EVT_BUTTON, self.onClearGrid, self.clearGridBtn)
+        self.ctrlBtn1Sizer       = wx.BoxSizer(wx.HORIZONTAL)
+        self.ctrlBtn1Sizer.Add(self.clearGridBtn, 0, wx.ALL, 5)
+        self.ctrlSizer.Add(self.ctrlBtn1Sizer, 0, wx.ALL|wx.CENTER, 5)
+
  
         # Top level sizer.
         self.SetSizer(self.mainSizer)
@@ -112,13 +122,23 @@ class lifeFrame(wx.Frame):
     def on1Step(self, event):
         global numSteps
         global numAlive
-        lifeStep(lFrame.lGrid.curMatrix)  # Defined outside of this class.
+        lifeStep(lFrame.lGrid.curMatrix, self.showCorpsesBox.GetValue())  # Defined outside of this class.
         for row in range(NUMROWS):
             for col in range(NUMCOLS):
                 self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])
         self.reportStats(numSteps, numAlive, 0)
 
-
+    def onClearGrid(self, event):
+        global numSteps, numAlive
+        numSteps=numAlive=0
+        for row in range(NUMROWS):
+            for col in range(NUMCOLS):
+                if self.lGrid.curMatrix[row][col] !=EC:  # Avoid unnecessary SetCellValue's.
+                    self.lGrid.curMatrix[row][col]=EC
+                    self.lGrid.SetCellValue(row, col, EC)
+        self.reportMessage('')
+        self.reportStats(0, 0, 0)
+        
     def onMenuLoad(self, event):
         with wx.FileDialog(self, "Open CSV file", wildcard="CSV files (*.csv)|*.csv",
                            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as fileDialog:
@@ -226,30 +246,33 @@ class lifeGrid(wx.grid.Grid):
 
         evt.Skip()
 
-def lifeStep(curMatrix):
+def lifeStep(curMatrix, showCorpses):
     global numAlive
     global numSteps
     numSteps +=1
 
     nextMat=[['' for x in range(NUMROWS)] for y in range(NUMCOLS)]
 
+    if showCorpses: corpse=DC  # Leave a mark for a cell that died recently.
+    else:           corpse=EC
+
     # Build a new map of cells first...
     for row in range(0,NUMROWS):
         for col in range(0,NUMCOLS):
             naybors=sumNaybors(curMatrix, row, col)
             currentCell= curMatrix[row][col]
-            if currentCell == AC:              # Was alive
+            if currentCell == AC:                # Was alive
                 if naybors<2 or naybors>3:
-                    nextMat[row][col]=EC         # Died.
+                    nextMat[row][col]=corpse     # Died.
                     numAlive -= 1
                 else:
                     nextMat[row][col]=AC         # Still alive
-            else:                              # Was dead
+            else:                                # Was dead
                 if naybors==3:
-                    nextMat[row][col]=AC           # New cell
+                    nextMat[row][col]=AC         # New cell
                     numAlive   += 1
                 else:
-                    nextMat[row][col]=EC           # Still dead
+                    nextMat[row][col]=EC         # Still dead
 
     # ...then copy the new map into the wx grid so someone else can refresh the UI.
     for row in range(NUMROWS):

@@ -7,6 +7,7 @@ Created on Feb 1, 2018
 import wx
 import wx.grid
 import csv
+import timeit
 
 
 NUMROWS=40
@@ -87,22 +88,39 @@ class lifeFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.on1Step, self.oneStepBtn)
         self.oneStepSizer       = wx.BoxSizer(wx.HORIZONTAL)
         self.oneStepSizer.Add(self.oneStepBtn, 0, wx.ALL, 0)
-        self.ctrlSizer.Add(self.oneStepSizer, 0,       wx.ALL|wx.CENTER, 5)
- 
+        
+        self.runStopStepsBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, style=wx.CHK_2STATE, label="Stop at...")
+        self.runStopStepsBox.SetValue(True)
+        self.inputStopSteps = wx.TextCtrl(self.ctrlPanel, wx.ID_ANY,'10', size=(50,-1), style=wx.TE_RIGHT|wx.TE_PROCESS_ENTER)
+        self.labelStopSteps = wx.StaticText(self.ctrlPanel, wx.ID_ANY, 'Steps')
+        self.manyStepSizer  = wx.BoxSizer(wx.HORIZONTAL) 
+        self.manyStepSizer.Add(self.runStopStepsBox, 0, wx.RIGHT|wx.CENTER, 5)
+        self.manyStepSizer.Add(self.inputStopSteps, 1, wx.ALL|wx.EXPAND|wx.CENTER, 1)
+        self.manyStepSizer.Add(self.labelStopSteps, 0, wx.ALL|wx.CENTER, 5)
+         
         self.showCorpsesBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, 'Show corpses')
-        self.ctrlSizer.Add(self.showCorpsesBox, 0,      wx.LEFT|wx.ALL, 0)
+
+        self.runManyBtn    = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Run', style=wx.EXPAND)
+        self.Bind(wx.EVT_BUTTON, self.onRun, self.runManyBtn)
+        self.runManySizer       = wx.BoxSizer(wx.HORIZONTAL)
+        self.runManySizer.Add(self.runManyBtn, 0, wx.RIGHT|wx.CENTER, 5)
 
         self.clearGridBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Clear Grid')
         self.Bind(wx.EVT_BUTTON, self.onClearGrid, self.clearGridBtn)
         self.ctrlBtn1Sizer       = wx.BoxSizer(wx.HORIZONTAL)
         self.ctrlBtn1Sizer.Add(self.clearGridBtn, 0, wx.ALL, 5)
+
+        self.ctrlSizer.Add(self.oneStepSizer, 0,       wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
+        self.ctrlSizer.Add(self.manyStepSizer, 0,       wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(self.showCorpsesBox, 0,      wx.LEFT|wx.ALL, 0)
+        self.ctrlSizer.Add(self.runManySizer, 0,       wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
         self.ctrlSizer.Add(self.ctrlBtn1Sizer, 0, wx.ALL|wx.CENTER, 5)
 
- 
         # Top level sizer.
         self.SetSizer(self.mainSizer)
         self.mainSizer.Fit(self)
-
 
 # Event Handlers
     def onExit(self, event):
@@ -128,6 +146,32 @@ class lifeFrame(wx.Frame):
                 self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])
         self.reportStats(numSteps, numAlive, 0)
 
+    def onRun(self, event):  
+        global numSteps
+        self.runManyBtn.Disable()
+        self.reportMessage("Running...") # Tell the world that we're running.
+ 
+        stopSteps=0
+        if (lFrame.runStopStepsBox.GetValue()):
+            raw_value = lFrame.inputStopSteps.GetValue()
+            if all(x in '0123456789.+-' for x in raw_value):
+                # convert to float and limit to 2 decimals
+                stopSteps = int(float(raw_value))
+                lFrame.inputStopSteps.ChangeValue(str(stopSteps))
+            else:
+                # Tell UI that there was an error.
+                self.reportMessage("Steps: Input Error")
+                return
+
+        rate=self.runMany(lFrame.lGrid.curMatrix, stopSteps, lFrame.showCorpsesBox.GetValue()) 
+        
+        self.reportMessage("The run completed.")
+        self.reportStats(numSteps, numAlive, rate)
+        self.runManyBtn.Enable()
+        for row in range(NUMROWS):
+            for col in range(NUMCOLS):
+                self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])        
+        
     def onClearGrid(self, event):
         global numSteps, numAlive
         numSteps=numAlive=0
@@ -210,6 +254,31 @@ class lifeFrame(wx.Frame):
 
     def reportMessage(self, text):
         self.statusBar.SetStatusText(text, 0)
+
+    def runMany(self, matrix, stopAfterSteps, showCorpses):
+        # Data Initializations
+        keepGoing=True  # Set to False when certain conditions are met.
+        step=1          # To limit steps, and to time perf samples.
+
+        # Start timer to report step rate.
+        startTime=1.0*timeit.default_timer()
+        
+        # Main loop
+        while keepGoing:
+            lifeStep(matrix, showCorpses)  # Actually "live" for a step. :-)
+            # Detect requested termination conditions, express same.
+            step += 1
+            if (stopAfterSteps>0 and step>stopAfterSteps):
+                keepGoing=False  
+            if numAlive<1:
+                keepGoing=False  
+
+        endTime=1.0*timeit.default_timer()
+        elapsed=endTime-startTime
+        speedMeasured=step/elapsed
+
+        return (speedMeasured)
+        
 
 class lifeGrid(wx.grid.Grid):
     def __init__(self, *args, **kw):

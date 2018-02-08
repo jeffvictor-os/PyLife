@@ -1,11 +1,10 @@
-# Unit tests for pylife
+# Unit tests for pylife.py
+#
+# @author: Jeff Victor
 
 import unittest
 import wx
 import pylife
-
-#AC='*'
-#EC=''
 
 class TestPyLife(unittest.TestCase):
     def setUp(self):
@@ -18,26 +17,25 @@ class TestPyLife(unittest.TestCase):
         self.app.MainLoop()
 
     def test_reportMessage(self):
-        pylife.lifeFrame.reportMessage(self.lFrame, "Message")
+        self.lFrame.reportMessage("Message")
         self.assertEqual("Message", self.lFrame.statusBar.GetStatusText())
         
     def test_reportStats(self):
         AC=pylife.AC
-        pylife.lifeFrame.reportStats(self.lFrame, 5, 4, 3)
+        self.lFrame.reportStats(5, 4, 3)
         self.assertEqual(format("%d %s"%(4, AC)), self.lFrame.statusBar.GetStatusText(2))
         
     def test_onAbout(self):
         evt = wx.CommandEvent(wx.EVT_MENU_OPEN.typeId)
-        pylife.lifeFrame.onAbout(self.lFrame, evt)
+        self.lFrame.onAbout(evt)
         self.assertEqual("PyLife", self.lFrame.aboutInfo.GetName())
         
     def test_lifeStep(self):
         # Set a known pattern, and test the result of lifeStep.
         # This indirectly tests sumNaybors().
         mat=self.lFrame.lGrid.curMatrix
-        for x in range(pylife.NUMROWS): 
-            for y in range(pylife.NUMCOLS):
-                mat[x][y]=''
+        evt = wx.CommandEvent(wx.EVT_BUTTON.typeId)
+        self.lFrame.onClearGrid(evt)
         AC=pylife.AC
         EC=pylife.EC
         mat[2][1]=AC
@@ -54,8 +52,6 @@ class TestPyLife(unittest.TestCase):
         self.assertEqual(mat[3][2],AC)
         self.assertEqual(mat[3][3],EC)
         
-        # Verify correct operation of reportMessage()
-        
         
     def test_loadDataFromFile(self):
         # This test loads a known map-file, and verifies that the resulting map is "correct."
@@ -67,11 +63,11 @@ class TestPyLife(unittest.TestCase):
         mat[20][20]=EC
         try:
             with open(pathname, 'r') as loadFile:
-                pylife.lifeFrame.loadDataFromFile(self.lFrame, loadFile)
-            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
-            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+                self.lFrame.loadDataFromFile(loadFile)
+            self.lFrame.reportMessage("The file has been loaded.")
+            self.lFrame.reportStats(0, pylife.numAlive, 0)
         except IOError:
-            pylife.lifeFrame.reportMessage(self.lFrame, format("Cannot open file '%s'." % pathname))
+            self.lFrame.reportMessage(format("Cannot open file '%s'." % pathname))
             self.fail ('Could not open the file.')
 
         self.assertEqual(mat[1][1],EC)
@@ -88,23 +84,23 @@ class TestPyLife(unittest.TestCase):
         mat[20][20]=EC
         try:                                       # First load a known map.
             with open(loadpath, 'r') as loadFile:
-                pylife.lifeFrame.loadDataFromFile(self.lFrame, loadFile)
-            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
-            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+                self.lFrame.loadDataFromFile(loadFile)
+            self.lFrame.reportMessage("The file has been loaded.")
+            self.lFrame.reportStats(0, pylife.numAlive, 0)
         except IOError:
             self.fail (format ('Could not open the source file: %s.'%loadpath))
         try:                                       # Then save the map.
             with open(savepath, 'w') as saveFile:
-                pylife.lifeFrame.saveDataToFile(self.lFrame, saveFile)
-            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been saved.")
-            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+                self.lFrame.saveDataToFile(saveFile)
+            self.lFrame.reportMessage("The file has been saved.")
+            self.lFrame.reportStats(0, pylife.numAlive, 0)
         except IOError:
             self.fail (format ('Could not open the file to save: %s.'%savepath))
         try:                                       # Now *re*load the known map.
             with open(savepath, 'r') as loadFile:
-                pylife.lifeFrame.loadDataFromFile(self.lFrame, loadFile)
-            pylife.lifeFrame.reportMessage(self.lFrame, "The file has been loaded.")
-            pylife.lifeFrame.reportStats(self.lFrame, 0, pylife.numAlive, 0)
+                self.lFrame.loadDataFromFile(loadFile)
+            self.lFrame.reportMessage("The file has been loaded.")
+            self.lFrame.reportStats(0, pylife.numAlive, 0)
         except IOError:
             self.fail (format ('Could not open the file that was saved: %s.'%savepath))
 
@@ -113,35 +109,52 @@ class TestPyLife(unittest.TestCase):
         
     def test_onClearGrid(self):
         mat=self.lFrame.lGrid.curMatrix
-        for x in range(pylife.NUMROWS): 
-            for y in range(pylife.NUMCOLS):
-                mat[x][y]=pylife.AC
         evt = wx.CommandEvent(wx.EVT_BUTTON.typeId)
-        pylife.lifeFrame.onClearGrid(self.lFrame, evt) 
+        self.lFrame.onClearGrid(evt)
         self.assertEqual(mat[1][1],pylife.EC)
         self.assertEqual(mat[2][3],pylife.EC)
         self.assertEqual(mat[6][8],pylife.EC) 
 
     def test_showCorpses(self):
+        # Create a known pattern, step once, verify results, and repeat.
         AC=pylife.AC
         DC=pylife.DC
         EC=pylife.EC
         mat=self.lFrame.lGrid.curMatrix
-        for x in range(pylife.NUMROWS): 
-            for y in range(pylife.NUMCOLS):
-                mat[x][y]=EC
-        mat[2][1]=AC
+        evt = wx.CommandEvent(wx.EVT_BUTTON.typeId)
+        self.lFrame.onClearGrid(evt)
+        mat[2][1]=AC   # Draw a '-'
         mat[2][2]=AC
         mat[2][3]=AC
         pylife.lifeStep(mat, True)
-        self.assertEqual(mat[1][1],EC)
+        self.assertEqual(mat[1][1],EC)    # Verify '|'
         self.assertEqual(mat[2][1],DC)
         self.assertEqual(mat[2][2],AC)
         pylife.lifeStep(mat, False)
-        self.assertEqual(mat[1][2],EC)
+        self.assertEqual(mat[1][2],EC)    # Verify '-'
         self.assertEqual(mat[2][1],AC)
         self.assertEqual(mat[3][2],EC)
         
-        
+    def test_runMany(self):
+        # Set desired initial state, call method, verify.
+        mat=self.lFrame.lGrid.curMatrix
+        self.lFrame.inputStopSteps.ChangeValue(str(10))
+        pylife.numSteps=0
+        evt = wx.CommandEvent(wx.EVT_BUTTON.typeId)
+        self.lFrame.onClearGrid(evt)
+        mat[1][2]=pylife.AC   # Draw a glider.
+        mat[2][3]=pylife.AC
+        mat[3][1]=pylife.AC
+        mat[3][2]=pylife.AC
+        mat[3][3]=pylife.AC
+        pylife.numAlive=5
+
+        self.lFrame.runMany(mat, 10, 0)
+        self.assertEqual(pylife.numSteps, 10) # Also tests reportStats()
+        self.assertEqual(mat[5][3],pylife.AC)
+        self.assertEqual(mat[4][5],pylife.AC)
+        self.assertEqual(mat[1][2],pylife.EC)
+          
+            
 if __name__ == '__main__':
     unittest.main()

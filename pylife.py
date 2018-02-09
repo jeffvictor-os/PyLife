@@ -25,7 +25,7 @@ speedMeasured=0
 
 stopWorker=threading.Event()     # User pressed Stop button.
 workerRunning=threading.Event()  # Worker thread is running.
-
+UIdone=threading.Event()         # Worker waits after a step until this is set.
 
 class lifeFrame(wx.Frame):
     def __init__(self):
@@ -81,7 +81,7 @@ class lifeFrame(wx.Frame):
         # Life Panel: wx.grid
         self.lifeSizer        = wx.BoxSizer(wx.VERTICAL)
         self.lifePanel.SetSizer(self.lifeSizer)
-        self.ltitle = wx.StaticText(self.lifePanel, wx.ID_ANY, 'Life Grid')
+        self.ltitle = wx.StaticText(self.lifePanel, wx.ID_ANY, 'Life Grid - Click to Create Life')
         self.ltitleSizer       = wx.BoxSizer(wx.HORIZONTAL)
         self.ltitleSizer.Add(self.ltitle, 0, wx.ALL, 5)
         self.lifeSizer.Add(self.ltitleSizer, 0, wx.CENTER)
@@ -97,7 +97,6 @@ class lifeFrame(wx.Frame):
 
         # Controls to specify termination conditions for a run.        
         self.runStopStepsBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, style=wx.CHK_2STATE, label="Stop at...")
-        self.runStopStepsBox.SetValue(True)
         self.inputStopSteps = wx.TextCtrl(self.ctrlPanel, wx.ID_ANY,'10', size=(50,-1), style=wx.TE_RIGHT|wx.TE_PROCESS_ENTER)
         self.labelStopSteps = wx.StaticText(self.ctrlPanel, wx.ID_ANY, 'Steps')
         self.manyStepSizer  = wx.BoxSizer(wx.HORIZONTAL) 
@@ -139,7 +138,9 @@ class lifeFrame(wx.Frame):
         self.SetSizer(self.mainSizer)
         self.mainSizer.Fit(self)
 
-        Publisher().subscribe(self.recvRunDone,  "rundone")
+        Publisher().subscribe(self.recvRunDone,  "rundone") # Worker sends this at end of a run.
+        Publisher().subscribe(self.recvStepDone, "stepdone") # Worker sends this after each step.
+
 
 # Event Handlers
     def onExit(self, event):
@@ -200,6 +201,21 @@ class lifeFrame(wx.Frame):
             for col in range(NUMCOLS):
                 self.lGrid.SetCellValue(row, col, self.lGrid.curMatrix[row][col])        
         self.runManyBtn.Enable()
+        
+    # The run-worker thread sends one message per generation.
+    def recvStepDone(self, msg):
+        global UIdone
+
+        # Uses the incoming message and the updated map to update the display.
+        for row in range(NUMROWS):
+            for col in range(NUMCOLS):
+                self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])
+        # Receives data from thread and updates the display
+        t = msg.data
+        (steps, alive, rate) = t.split(',')
+        self.reportStats(int(steps), int(alive), int(rate))
+        UIdone.set()
+
         
     def onResetSteps(self, event):
         global numAlive, numSteps
@@ -297,7 +313,7 @@ class lifeFrame(wx.Frame):
 
     def runMany(self, matrix, stopAfterSteps, showCorpses):
         global numSteps, numAlive, speedMeasured
-        global stopWorker, workerRunning
+        global stopWorker, workerRunning, UIdone
         # Data Initializations
         keepGoing=True  # Set to False when certain conditions are met.
         step=1          # To limit steps, and to time perf samples.
@@ -316,6 +332,12 @@ class lifeFrame(wx.Frame):
             if stopWorker.isSet():
                 result="was interrupted"
                 keepGoing=False
+
+            # Clear the semaphore, send a msg to the UI, wait for it to finish its update.
+            UIdone.clear()
+            msg=format("%d,%d,%d" % (numSteps, numAlive, speedMeasured))
+            wx.CallAfter(Publisher().sendMessage, "stepdone", msg) # Tell GUI to refresh.
+            UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
 
             step += 1
             if (stopAfterSteps>0 and step>stopAfterSteps):

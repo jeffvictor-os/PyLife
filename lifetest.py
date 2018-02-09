@@ -1,6 +1,8 @@
 # Unit tests for pylife.py
 #
-# @author: Jeff Victor
+'''
+@author: Jeff Victor
+'''
 
 import unittest
 import wx

@@ -8,7 +8,8 @@ import wx
 import wx.grid
 import csv
 import timeit
-
+import threading
+from wx.lib.pubsub import Publisher
 
 NUMROWS=40
 NUMCOLS=40
@@ -20,6 +21,11 @@ DC='-'   # Dead Cell
 
 numSteps=0
 numAlive=0
+speedMeasured=0
+
+stopWorker=threading.Event()     # User pressed Stop button.
+workerRunning=threading.Event()  # Worker thread is running.
+
 
 class lifeFrame(wx.Frame):
     def __init__(self):
@@ -88,7 +94,8 @@ class lifeFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.on1Step, self.oneStepBtn)
         self.oneStepSizer       = wx.BoxSizer(wx.HORIZONTAL)
         self.oneStepSizer.Add(self.oneStepBtn, 0, wx.ALL, 0)
-        
+
+        # Controls to specify termination conditions for a run.        
         self.runStopStepsBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, style=wx.CHK_2STATE, label="Stop at...")
         self.runStopStepsBox.SetValue(True)
         self.inputStopSteps = wx.TextCtrl(self.ctrlPanel, wx.ID_ANY,'10', size=(50,-1), style=wx.TE_RIGHT|wx.TE_PROCESS_ENTER)
@@ -100,27 +107,39 @@ class lifeFrame(wx.Frame):
          
         self.showCorpsesBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, 'Show corpses')
 
+        # Buttons to run and stop.
         self.runManyBtn    = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Run', style=wx.EXPAND)
         self.Bind(wx.EVT_BUTTON, self.onRun, self.runManyBtn)
-        self.runManySizer       = wx.BoxSizer(wx.HORIZONTAL)
-        self.runManySizer.Add(self.runManyBtn, 0, wx.RIGHT|wx.CENTER, 5)
+        self.stopBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Stop')
+        self.Bind(wx.EVT_BUTTON, self.onStop, self.stopBtn)
+        self.stopBtn.Disable()
+        self.runStopSizer       = wx.BoxSizer(wx.HORIZONTAL)
+        self.runStopSizer.Add(self.runManyBtn, 0, wx.RIGHT|wx.CENTER, 5)
+        self.runStopSizer.Add(self.stopBtn, 0, wx.RIGHT|wx.CENTER, 5)
 
+        # Buttons to reset the counters and to clear all cells.
+        self.resetStepBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Reset Steps')
+        self.Bind(wx.EVT_BUTTON, self.onResetSteps, self.resetStepBtn)
         self.clearGridBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Clear Grid')
         self.Bind(wx.EVT_BUTTON, self.onClearGrid, self.clearGridBtn)
-        self.ctrlBtn1Sizer       = wx.BoxSizer(wx.HORIZONTAL)
-        self.ctrlBtn1Sizer.Add(self.clearGridBtn, 0, wx.ALL, 5)
-
-        self.ctrlSizer.Add(self.oneStepSizer, 0,       wx.ALL|wx.CENTER, 5)
+        self.resetClearSizer       = wx.BoxSizer(wx.HORIZONTAL)
+        self.resetClearSizer.Add(self.resetStepBtn, 0, wx.ALL, 5)
+        self.resetClearSizer.Add(self.clearGridBtn, 0, wx.ALL, 5)
+        
+        # Now layout all of the controls and sizers.
+        self.ctrlSizer.Add(self.oneStepSizer,   0,       wx.ALL|wx.CENTER, 5)
         self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
-        self.ctrlSizer.Add(self.manyStepSizer, 0,       wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(self.manyStepSizer,  0,       wx.ALL|wx.LEFT, 0)
         self.ctrlSizer.Add(self.showCorpsesBox, 0,      wx.LEFT|wx.ALL, 0)
-        self.ctrlSizer.Add(self.runManySizer, 0,       wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(self.runStopSizer,   0,       wx.ALL|wx.CENTER, 5)
         self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
-        self.ctrlSizer.Add(self.ctrlBtn1Sizer, 0, wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(self.resetClearSizer,  0, wx.ALL|wx.CENTER, 5)
 
         # Top level sizer.
         self.SetSizer(self.mainSizer)
         self.mainSizer.Fit(self)
+
+        Publisher().subscribe(self.recvRunDone,  "rundone")
 
 # Event Handlers
     def onExit(self, event):
@@ -137,6 +156,7 @@ class lifeFrame(wx.Frame):
         self.aboutInfo.AddDeveloper('Jeff Victor')
         wx.AboutBox(self.aboutInfo)
 
+    # Step forward one generation.
     def on1Step(self, event):
         global numSteps
         global numAlive
@@ -146,11 +166,13 @@ class lifeFrame(wx.Frame):
                 self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])
         self.reportStats(numSteps, numAlive, 0)
 
+    # Handler of the Run button. It gathers inputs and spawns a worker thread
+    # so that the UI, including the Stop button can work during the run.
     def onRun(self, event):  
         global numSteps
-        self.runManyBtn.Disable()
+        self.runManyBtn.Disable()    # This will be enabled in recvRunDone
         self.reportMessage("Running...") # Tell the world that we're running.
- 
+
         stopSteps=0
         if (lFrame.runStopStepsBox.GetValue()):
             raw_value = lFrame.inputStopSteps.GetValue()
@@ -163,15 +185,27 @@ class lifeFrame(wx.Frame):
                 self.reportMessage("Steps: Input Error")
                 return
 
-        rate=self.runMany(lFrame.lGrid.curMatrix, stopSteps, lFrame.showCorpsesBox.GetValue()) 
+        self.stopBtn.Enable()
+        thrRunMany = threading.Thread(target=self.runMany,args=(lFrame.lGrid.curMatrix, stopSteps, lFrame.showCorpsesBox.GetValue())) 
+        thrRunMany.start()
+
+    def recvRunDone(self, msg):        
+        t = msg.data
+        (steps, alive, rate, result) = t.split(',')
         
-        self.reportMessage("The run completed.")
-        self.reportStats(numSteps, numAlive, rate)
-        self.runManyBtn.Enable()
+        self.stopBtn.Disable()
+        self.reportMessage(format("The run %s."%result))
+        self.reportStats(int(steps), int(alive), int(rate))
         for row in range(NUMROWS):
             for col in range(NUMCOLS):
-                self.lGrid.SetCellValue(row, col, lFrame.lGrid.curMatrix[row][col])        
+                self.lGrid.SetCellValue(row, col, self.lGrid.curMatrix[row][col])        
+        self.runManyBtn.Enable()
         
+    def onResetSteps(self, event):
+        global numAlive, numSteps
+        numSteps=0
+        self.reportStats(numSteps, numAlive, 0)
+
     def onClearGrid(self, event):
         global numSteps, numAlive
         numSteps=numAlive=0
@@ -182,6 +216,12 @@ class lifeFrame(wx.Frame):
                     self.lGrid.SetCellValue(row, col, EC)
         self.reportMessage('')
         self.reportStats(0, 0, 0)
+
+    def onStop(self, event):
+        global workerRunning, stopWorker
+        if workerRunning.isSet():         # Is worker even running?
+            self.stopBtn.Disable()        # Will be re-enabled by recvRunDone
+            stopWorker.set()              # Tell worker to stop.
         
     def onMenuLoad(self, event):
         with wx.FileDialog(self, "Open CSV file", wildcard="CSV files (*.csv)|*.csv",
@@ -256,28 +296,42 @@ class lifeFrame(wx.Frame):
         self.statusBar.SetStatusText(text, 0)
 
     def runMany(self, matrix, stopAfterSteps, showCorpses):
+        global numSteps, numAlive, speedMeasured
+        global stopWorker, workerRunning
         # Data Initializations
         keepGoing=True  # Set to False when certain conditions are met.
         step=1          # To limit steps, and to time perf samples.
+        result="completed"
+        stopWorker.clear()
+        workerRunning.set()
 
         # Start timer to report step rate.
         startTime=1.0*timeit.default_timer()
-        
+
         # Main loop
         while keepGoing:
             lifeStep(matrix, showCorpses)  # Actually "live" for a step. :-)
+            
             # Detect requested termination conditions, express same.
+            if stopWorker.isSet():
+                result="was interrupted"
+                keepGoing=False
+
             step += 1
             if (stopAfterSteps>0 and step>stopAfterSteps):
                 keepGoing=False  
             if numAlive<1:
+                result="ended with no cells"
                 keepGoing=False  
+
 
         endTime=1.0*timeit.default_timer()
         elapsed=endTime-startTime
         speedMeasured=step/elapsed
 
-        return (speedMeasured)
+        msg=format("%d,%d,%d,%s" % (numSteps, numAlive, speedMeasured, result))
+        wx.CallAfter(Publisher().sendMessage, "rundone", msg) # Tell GUI all steps are done.
+        stopWorker.clear()
         
 
 class lifeGrid(wx.grid.Grid):

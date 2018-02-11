@@ -25,7 +25,7 @@ class TestPyLife(unittest.TestCase):
     def test_reportStats(self):
         AC=pylife.AC
         self.lFrame.reportStats(5, 4, 3)
-        self.assertEqual(format("%d %s"%(4, AC)), self.lFrame.statusBar.GetStatusText(2))
+        self.assertEqual(format("%d cells"%4), self.lFrame.statusBar.GetStatusText(2))
         
     def test_onAbout(self):
         evt = wx.CommandEvent(wx.EVT_MENU_OPEN.typeId)

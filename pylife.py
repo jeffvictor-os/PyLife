@@ -1,7 +1,7 @@
 '''
 Created on Feb 1, 2018
 
-@author: jeff victor
+@author: Jeff Victor
 '''
 
 import wx
@@ -52,8 +52,10 @@ class lifeFrame(wx.Frame):
 
         helpMenu = wx.Menu()
         aboutMenuItem = helpMenu.Append(wx.NewId(), "About...", "About Life")
+        usageMenuItem = helpMenu.Append(wx.NewId(), "Usage...", "Instructions")
         menuBar.Append(helpMenu, "&Help")
         self.Bind(wx.EVT_MENU, self.onAbout, aboutMenuItem)
+        self.Bind(wx.EVT_MENU, self.onHelp, usageMenuItem)
 
         self.SetMenuBar(menuBar)
 
@@ -117,7 +119,7 @@ class lifeFrame(wx.Frame):
         self.stepRateSizer.Add(self.labelStepRate, 0, wx.ALL|wx.CENTER, 1)    
 
         # Stop a run when the map stops changing.
-        self.runStillBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, label='Stop when still lifes')
+        self.runStillBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, label='Stop when just still lifes')
         self.runStillBox.SetValue(True)
 
         # Stop a run when the map is static plus blinkers.
@@ -186,10 +188,28 @@ class lifeFrame(wx.Frame):
         self.aboutInfo.AddDeveloper('Jeff Victor')
         wx.AboutBox(self.aboutInfo)
 
+    def onHelp(self, event):
+        wx.MessageBox('PyLife is an implementation of Conway\'s Game of Life.\n\
+        To get started, click anywhere in the large empty rectangle to create a "cell"\
+ - or, if one is already there, to destroy it. After creating a few cells,\
+ click the "1-Step" button to more forward one generation.\n\
+        To  move forward several generations, use the "Run" button. Cells will appear\
+ and disappear until you click "Stop."\n\
+        The other controls allow you to:\n\
+        - Specify a number of generations to run\n\
+        - Stop a run if all cells have died, or if changes aren\'t happening,\
+ or if the same pattern keeps repeating\n\
+        - Limit the number of steps per second, if they are happening too quickly,\n\
+        - Show the most-recently-deceased cells\n\
+        - Improve performance considerably by not showing the result of each step.\n\
+        "Reset Steps" clears the "steps" counter, and "Clear Grid" removes all of the\
+ "living" cells.')
+        
     # Step forward one generation.
     def on1Step(self, event):
         global numSteps
         global numAlive
+        self.reportMessage('')
         lifeStep(lFrame.lGrid.curMatrix, self.showCorpsesBox.GetValue())  # Defined outside of this class.
         for row in range(NUMROWS):
             for col in range(NUMCOLS):
@@ -201,32 +221,34 @@ class lifeFrame(wx.Frame):
     def onRun(self, event):  
         global numSteps
         self.runManyBtn.Disable()    # This will be enabled in recvRunDone
-        self.reportMessage("Running...") # Tell the world that we're running.
         speedGoal=0    # Zero means no rate cap.
-
         stopSteps=0
+        
         if (lFrame.runStopStepsBox.GetValue()):
-            raw_value = lFrame.inputStopSteps.GetValue()
-            if all(x in '0123456789.+-' for x in raw_value):
+            rawValue = lFrame.inputStopSteps.GetValue()
+            if len(rawValue)>0 and all(x in '0123456789' for x in rawValue):
                 # convert to float and limit to 2 decimals
-                stopSteps = int(float(raw_value))
+                stopSteps = int(float(rawValue))
                 lFrame.inputStopSteps.ChangeValue(str(stopSteps))
             else:
                 # Tell UI that there was an error.
                 self.reportMessage("Steps: Input Error")
+                self.runManyBtn.Enable()
                 return
 
         if lFrame.stepRateBox.GetValue():      # Get the user-specified goal.
-            raw_value = lFrame.inputStepRate.GetValue()
-            if all(x in '0123456789.+-' for x in raw_value):
+            rawValue = lFrame.inputStepRate.GetValue()
+            if len(rawValue)>0 and all(x in '0123456789' for x in rawValue):
                 # convert to float and limit to 2 decimals
-                speedGoal = int(float(raw_value))
+                speedGoal = int(float(rawValue))
                 lFrame.inputStepRate.ChangeValue(str(speedGoal))
             else:
                 # Tell UI that there was an error.
-                wx.CallAfter(Publisher().sendMessage, "errdone", "Input Error")
+                self.reportMessage("Steps/sec: Input Error")
+                self.runManyBtn.Enable()
                 return
         
+        self.reportMessage("Running...") # Tell the world that we're running.
         stopStill  =lFrame.runStillBox.GetValue()
         stopOscillators=lFrame.runOscillatorsBox.GetValue()
         showSteps=lFrame.showStepsBox.GetValue()
@@ -350,7 +372,7 @@ class lifeFrame(wx.Frame):
 # Small utility functions
     def reportStats(self, steps, Alive, rate):
         self.statusBar.SetStatusText(format("%d steps"%steps), 1)
-        self.statusBar.SetStatusText(format("%d %s"%(Alive, AC)), 2)
+        self.statusBar.SetStatusText(format("%d cells"%Alive), 2)
         self.statusBar.SetStatusText(format("%d steps/second"%rate), 4)
 
     def reportMessage(self, text):
@@ -413,17 +435,20 @@ class lifeFrame(wx.Frame):
             step += 1
             if stopWhenStill and newHash==oldHash1:
                 keepGoing=False
+                result='stopped with no changes'
             elif stopWhenOscillators and (newHash==oldHash2 or newHash==oldHash3 or newHash==oldHash4):
                 keepGoing=False
+                result='stopped with oscillators'
             else:
                 oldHash4=oldHash3
                 oldHash3=oldHash2
                 oldHash2=oldHash1
                 oldHash1=newHash
             if (stopAfterSteps>0 and step>stopAfterSteps):
-                keepGoing=False  
+                keepGoing=False
+                result='completed all steps'
             if numAlive<1:
-                result="ended with no cells"
+                result='ended with no cells'
                 keepGoing=False  
             if speedGoal>0 and keepGoing==True:
                 time.sleep(delay)

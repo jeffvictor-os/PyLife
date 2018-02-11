@@ -7,6 +7,7 @@ Created on Feb 1, 2018
 import wx
 import wx.grid
 import csv
+import time
 import timeit
 import threading
 from wx.lib.pubsub import Publisher
@@ -23,9 +24,9 @@ numSteps=0
 numAlive=0
 speedMeasured=0
 
-stopWorker=threading.Event()     # User pressed Stop button.
-workerRunning=threading.Event()  # Worker thread is running.
-UIdone=threading.Event()         # Worker waits after a step until this is set.
+stopWorker=threading.Event()     # True:=User pressed Stop button.
+workerRunning=threading.Event()  # True:=Worker thread is running.
+UIdone=threading.Event()         # After a step, Worker waits until this is set.
 
 class lifeFrame(wx.Frame):
     def __init__(self):
@@ -76,7 +77,7 @@ class lifeFrame(wx.Frame):
         self.ctitleSizer.Add(self.ctitle, 0, wx.ALL, 5)
         self.ctrlSizer.Add(self.ctitleSizer, 0, wx.CENTER)
 
-        # The controls are created after the Life (right) Panel.
+        # The actual controls are created after the Life (right) Panel.
         
         # Life Panel: wx.grid
         self.lifeSizer        = wx.BoxSizer(wx.VERTICAL)
@@ -90,6 +91,8 @@ class lifeFrame(wx.Frame):
         self.lifeSizer.Add(self.lGrid, 0, wx.LEFT, 5)
 
         # Controls for the Control Panel
+        
+        # Button to run one step (generation)
         self.oneStepBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, '1-Step')
         self.Bind(wx.EVT_BUTTON, self.on1Step, self.oneStepBtn)
         self.oneStepSizer       = wx.BoxSizer(wx.HORIZONTAL)
@@ -103,8 +106,30 @@ class lifeFrame(wx.Frame):
         self.manyStepSizer.Add(self.runStopStepsBox, 0, wx.RIGHT|wx.CENTER, 5)
         self.manyStepSizer.Add(self.inputStopSteps, 1, wx.ALL|wx.EXPAND|wx.CENTER, 1)
         self.manyStepSizer.Add(self.labelStopSteps, 0, wx.ALL|wx.CENTER, 5)
-         
+
+        # Controls to throttle the step rate.
+        self.stepRateBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, style=wx.CHK_2STATE, label="Limit to")
+        self.inputStepRate  = wx.TextCtrl(self.ctrlPanel, wx.ID_ANY,'0', size=(30,-1), style=wx.TE_RIGHT|wx.TE_PROCESS_ENTER)
+        self.labelStepRate  = wx.StaticText(self.ctrlPanel, wx.ID_ANY, 'Steps/sec')
+        self.stepRateSizer  = wx.BoxSizer(wx.HORIZONTAL)
+        self.stepRateSizer.Add(self.stepRateBox, 0, wx.RIGHT|wx.CENTER, 1)
+        self.stepRateSizer.Add(self.inputStepRate, 1, wx.ALL|wx.EXPAND|wx.CENTER, 5)
+        self.stepRateSizer.Add(self.labelStepRate, 0, wx.ALL|wx.CENTER, 1)    
+
+        # Stop a run when the map stops changing.
+        self.runStillBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, label='Stop when still lifes')
+        self.runStillBox.SetValue(True)
+
+        # Stop a run when the map is static plus blinkers.
+        self.runOscillatorsBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, label='Stop when just oscillators')
+        self.runOscillatorsBox.SetValue(True)
+        
+        # Show the most recently deceased cells?         
         self.showCorpsesBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, 'Show corpses')
+        
+        # Show map after each step in a run.
+        self.showStepsBox = wx.CheckBox(self.ctrlPanel, wx.ID_ANY, 'Show each step')
+        self.showStepsBox.SetValue(True)
 
         # Buttons to run and stop.
         self.runManyBtn    = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Run', style=wx.EXPAND)
@@ -128,9 +153,13 @@ class lifeFrame(wx.Frame):
         # Now layout all of the controls and sizers.
         self.ctrlSizer.Add(self.oneStepSizer,   0,       wx.ALL|wx.CENTER, 5)
         self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
-        self.ctrlSizer.Add(self.manyStepSizer,  0,       wx.ALL|wx.LEFT, 0)
-        self.ctrlSizer.Add(self.showCorpsesBox, 0,      wx.LEFT|wx.ALL, 0)
-        self.ctrlSizer.Add(self.runStopSizer,   0,       wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(self.manyStepSizer,  0,     wx.ALL|wx.LEFT, 0)
+        self.ctrlSizer.Add(self.stepRateSizer, 0,      wx.LEFT|wx.ALL, 0)
+        self.ctrlSizer.Add(self.runStillBox, 0,     wx.LEFT|wx.ALL, 0)
+        self.ctrlSizer.Add(self.runOscillatorsBox, 0,  wx.LEFT|wx.ALL, 0)
+        self.ctrlSizer.Add(self.showCorpsesBox, 0,     wx.LEFT|wx.ALL, 0)
+        self.ctrlSizer.Add(self.showStepsBox, 0,     wx.LEFT|wx.ALL, 0)
+        self.ctrlSizer.Add(self.runStopSizer,   0,     wx.ALL|wx.CENTER, 5)
         self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
         self.ctrlSizer.Add(self.resetClearSizer,  0, wx.ALL|wx.CENTER, 5)
 
@@ -173,6 +202,7 @@ class lifeFrame(wx.Frame):
         global numSteps
         self.runManyBtn.Disable()    # This will be enabled in recvRunDone
         self.reportMessage("Running...") # Tell the world that we're running.
+        speedGoal=0    # Zero means no rate cap.
 
         stopSteps=0
         if (lFrame.runStopStepsBox.GetValue()):
@@ -186,8 +216,23 @@ class lifeFrame(wx.Frame):
                 self.reportMessage("Steps: Input Error")
                 return
 
+        if lFrame.stepRateBox.GetValue():      # Get the user-specified goal.
+            raw_value = lFrame.inputStepRate.GetValue()
+            if all(x in '0123456789.+-' for x in raw_value):
+                # convert to float and limit to 2 decimals
+                speedGoal = int(float(raw_value))
+                lFrame.inputStepRate.ChangeValue(str(speedGoal))
+            else:
+                # Tell UI that there was an error.
+                wx.CallAfter(Publisher().sendMessage, "errdone", "Input Error")
+                return
+        
+        stopStill  =lFrame.runStillBox.GetValue()
+        stopOscillators=lFrame.runOscillatorsBox.GetValue()
+        showSteps=lFrame.showStepsBox.GetValue()
+
         self.stopBtn.Enable()
-        thrRunMany = threading.Thread(target=self.runMany,args=(lFrame.lGrid.curMatrix, stopSteps, lFrame.showCorpsesBox.GetValue())) 
+        thrRunMany = threading.Thread(target=self.runMany,args=(lFrame.lGrid.curMatrix, stopSteps, stopStill, stopOscillators, lFrame.showCorpsesBox.GetValue(), showSteps, speedGoal)) 
         thrRunMany.start()
 
     def recvRunDone(self, msg):        
@@ -311,12 +356,18 @@ class lifeFrame(wx.Frame):
     def reportMessage(self, text):
         self.statusBar.SetStatusText(text, 0)
 
-    def runMany(self, matrix, stopAfterSteps, showCorpses):
+    def runMany(self, matrix, stopAfterSteps, stopWhenStill, stopWhenOscillators, showCorpses, showSteps, speedGoal):
         global numSteps, numAlive, speedMeasured
         global stopWorker, workerRunning, UIdone
         # Data Initializations
         keepGoing=True  # Set to False when certain conditions are met.
+        newHash=0       # Used to detect static map, possible with blinkers.
+        oldHash1=0      # Used to detect blinkers.
+        oldHash2=0      # Used to detect blinkers.
+        oldHash3=0      # Used to detect blinkers.
+        oldHash4=0      # Used to detect blinkers.
         step=1          # To limit steps, and to time perf samples.
+        stepSpeedMeasured=0
         result="completed"
         stopWorker.clear()
         workerRunning.set()
@@ -324,28 +375,58 @@ class lifeFrame(wx.Frame):
         # Start timer to report step rate.
         startTime=1.0*timeit.default_timer()
 
+        if speedGoal > 0:
+            delay = 1.0/speedGoal      # This is a first guess.
+            print "Goal= %d, Delay=%0.4f" % (speedGoal, delay)
+
+        # Report rate every 10 steps, and optionally adjust step rate every 10 steps.
+        stepStartTime=1.0*timeit.default_timer()
+
         # Main loop
         while keepGoing:
-            lifeStep(matrix, showCorpses)  # Actually "live" for a step. :-)
-            
+            newHash=lifeStep(matrix, showCorpses)  # Actually "live" for a step. :-)
+
+            if step % 10 == 0:    # If using a rate cap, tune the delay.
+                stepEndTime=1.0*timeit.default_timer()
+                stepElapsed=stepEndTime-stepStartTime
+                stepSpeedMeasured=10/stepElapsed
+                stepStartTime=1.0*timeit.default_timer()  # Ready to time next loop.
+                if speedGoal > 1.1*stepSpeedMeasured:
+                    delay = 0.9*delay
+                    if speedGoal: print "Tuning delay down to %0.4f." % delay
+                if speedGoal>0 and speedGoal < 0.9*stepSpeedMeasured:
+                    delay = 1.1*delay
+                    if speedGoal: print "Tuning delay up   to %0.4f." % delay
+
+            if showSteps==True:
+                # Clear the semaphore, send a msg to the UI, wait for it to finish its update.
+                UIdone.clear()
+                msg=format("%d,%d,%d" % (numSteps, numAlive, stepSpeedMeasured))
+                wx.CallAfter(Publisher().sendMessage, "stepdone", msg) # Tell GUI to refresh.
+                UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
+
             # Detect requested termination conditions, express same.
             if stopWorker.isSet():
                 result="was interrupted"
                 keepGoing=False
 
-            # Clear the semaphore, send a msg to the UI, wait for it to finish its update.
-            UIdone.clear()
-            msg=format("%d,%d,%d" % (numSteps, numAlive, speedMeasured))
-            wx.CallAfter(Publisher().sendMessage, "stepdone", msg) # Tell GUI to refresh.
-            UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
-
             step += 1
+            if stopWhenStill and newHash==oldHash1:
+                keepGoing=False
+            elif stopWhenOscillators and (newHash==oldHash2 or newHash==oldHash3 or newHash==oldHash4):
+                keepGoing=False
+            else:
+                oldHash4=oldHash3
+                oldHash3=oldHash2
+                oldHash2=oldHash1
+                oldHash1=newHash
             if (stopAfterSteps>0 and step>stopAfterSteps):
                 keepGoing=False  
             if numAlive<1:
                 result="ended with no cells"
                 keepGoing=False  
-
+            if speedGoal>0 and keepGoing==True:
+                time.sleep(delay)
 
         endTime=1.0*timeit.default_timer()
         elapsed=endTime-startTime
@@ -395,6 +476,7 @@ def lifeStep(curMatrix, showCorpses):
     global numAlive
     global numSteps
     numSteps +=1
+    lifeHash=0    # Used to detect map that's static, possible with blinkers.
 
     nextMat=[['' for x in range(NUMROWS)] for y in range(NUMCOLS)]
 
@@ -423,6 +505,10 @@ def lifeStep(curMatrix, showCorpses):
     for row in range(NUMROWS):
         for col in range(NUMCOLS):
             curMatrix[row][col]=nextMat[row][col]
+            if curMatrix[row][col]==AC:
+                lifeHash += row**2+col
+                
+    return lifeHash
 
 def sumNaybors(matrix, row, col):   # Count the number of neighbors of this cell.
     last=NUMROWS-1

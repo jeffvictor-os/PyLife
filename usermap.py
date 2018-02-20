@@ -21,7 +21,6 @@ from wx.lib.pubsub import Publisher
 import constants as const
 import globals as glob
 import datamap as data
-import pylifeui
 
 #stopWorker=threading.Event()     # True:=User pressed Pause button.
 #workerRunning=threading.Event()  # True:=Worker thread is running.
@@ -44,11 +43,10 @@ class userMap(wx.grid.Grid):
                 self.SetReadOnly(r, c, True)
         self.Bind(wx.grid.EVT_GRID_CELL_LEFT_CLICK, self.onCellLeftClick)
 
-        # Create the matrix that contains "truth" for the cells.
-#       self.curMatrix=[['' for x in range(const.NUMROWS)] for y in range(const.NUMCOLS)]
+        # Create the data structure that is the "real" map.
         self.map=data.datamap()
  
-    # When we need to update the userMap from the underlying data structure.
+    # Update the userMap from the underlying data structure.
     def updateMap(self):
         for row in range(const.NUMROWS):
             for col in range(const.NUMCOLS):
@@ -61,10 +59,11 @@ class userMap(wx.grid.Grid):
                     self.map.setContents(row, col, const.EC)
                     self.SetCellValue(row, col, const.EC)
 
+    # The UI supports single-step operation via this method.
     def umapStep(self, showCorpses):
         self.map.lifeStep(showCorpses)
 
-
+    # This method is called when the user clicks on the map to create or destroy
     def onCellLeftClick(self, evt):
         if self.map.getContents(evt.GetRow(), evt.GetCol()) == const.EC:
             self.map.setContents(evt.GetRow(), evt.GetCol(), const.AC)
@@ -80,8 +79,8 @@ class userMap(wx.grid.Grid):
         evt.Skip()
 
     # This method merely provides separation between the UI and the datamap module.
-    def uRunMany(self, stopSteps, stopStill, stopOscillators, showCorpsesBox, showSteps, speedGoal):
-        self.map.dRunMany(stopSteps, stopStill, stopOscillators, showCorpsesBox, showSteps, speedGoal)
+    def uRunMany(self, stopSteps, stopStill, stopOscillators, showCorpsesBox, speedGoal):
+        self.map.dRunMany(stopSteps, stopStill, stopOscillators, showCorpsesBox, speedGoal)
         
 
 if __name__ == '__main__':

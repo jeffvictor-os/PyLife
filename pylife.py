@@ -4,16 +4,11 @@ Created on Feb 1, 2018
 @author: Jeff Victor
 '''
 
-# This is the main module. It owns the window and the user control panel.
+# This is the main module. It manages the window and the user control panel.
 # This module does not contain code for the presentation of the map to 
 # the user. Also, it does not contain any knowledge about the data
 # structure that stores map state.
 
-# pylife-sepfuncs.py: separate into 4 modules:
-# 1. Frame and Control panel
-# 2. Map presentation
-# 3. Data representation
-# 4. Globals
 
 import wx
 import wx.grid
@@ -24,9 +19,6 @@ import globals as glob
 import datamap as data
 import usermap 
 
-#stopWorker=threading.Event()     # True:=User pressed Pause button.
-#workerRunning=threading.Event()  # True:=Worker thread is running.
-#UIdone=threading.Event()         # After a step, Worker waits until this is set.
 
 class lifeFrame(wx.Frame):
     def __init__(self):
@@ -215,18 +207,18 @@ class lifeFrame(wx.Frame):
         self.reportStats(glob.numSteps, self.uMap.map.getNumAlive(), 0)
 
     # Handler of the Run button. It gathers inputs and spawns a worker thread
-    # so that the UI, including the Pause button can work during the run.
+    # so that the UI, including the Pause button, can work during the run.
     def onRun(self, event):  
 
         self.runManyBtn.Disable()    # This will be enabled in recvRunDone
-        
+    
         stopSteps=0    # Number of generations to run in succession.
-        if (lFrame.runStopStepsBox.GetValue()):
-            rawValue = lFrame.inputStopSteps.GetValue()
+        if (self.runStopStepsBox.GetValue()):
+            rawValue = self.inputStopSteps.GetValue()
             if len(rawValue)>0 and all(x in '0123456789' for x in rawValue):
                 # convert to float and limit to 2 decimals
                 stopSteps = int(float(rawValue))
-                lFrame.inputStopSteps.ChangeValue(str(stopSteps))
+                self.inputStopSteps.ChangeValue(str(stopSteps))
             else:
                 # Tell UI that there was an error.
                 self.reportMessage("Steps: Input Error")
@@ -234,12 +226,12 @@ class lifeFrame(wx.Frame):
                 return
 
         speedGoal=0    # User's preferred rate of generations.
-        if lFrame.stepRateBox.GetValue():      # Get the user-specified goal.
-            rawValue = lFrame.inputStepRate.GetValue()
+        if self.stepRateBox.GetValue():      # Get the user-specified goal.
+            rawValue = self.inputStepRate.GetValue()
             if len(rawValue)>0 and all(x in '0123456789' for x in rawValue):
                 # convert to float and limit to 2 decimals
                 speedGoal = int(float(rawValue))
-                lFrame.inputStepRate.ChangeValue(str(speedGoal))
+                self.inputStepRate.ChangeValue(str(speedGoal))
             else:
                 # Tell UI that there was an error.
                 self.reportMessage("Steps/sec: Input Error")
@@ -249,12 +241,12 @@ class lifeFrame(wx.Frame):
         self.reportMessage("Running...") # Tell the world that we're running.
 
         # What features did the user request?
-        stopStill       =lFrame.runStillBox.GetValue()
-        stopOscillators =lFrame.runOscillatorsBox.GetValue()
-        showSteps       =lFrame.showStepsBox.GetValue()
+        stopStill       =self.runStillBox.GetValue()
+        stopOscillators =self.runOscillatorsBox.GetValue()
+        showSteps       =self.showStepsBox.GetValue()
 
         self.pauseBtn.Enable()
-        thrRunMany = threading.Thread(target=self.uMap.uRunMany,args=(stopSteps, stopStill, stopOscillators, lFrame.showCorpsesBox.GetValue(), showSteps, speedGoal)) 
+        thrRunMany = threading.Thread(target=self.uMap.uRunMany,args=(stopSteps, stopStill, stopOscillators, self.showCorpsesBox.GetValue(), speedGoal)) 
         thrRunMany.start()
 
     # After the run completes, the thread pub's a msg that causes recvRunDone to run.
@@ -268,15 +260,17 @@ class lifeFrame(wx.Frame):
         self.uMap.updateMap()
         self.runManyBtn.Enable()
         
-    # The run-worker thread sends one message per generation.
+    # The run-worker thread sends one message per generation, running this.
     def recvStepDone(self, msg):
         # Update the visible map from the map data.
-        self.uMap.updateMap()
+        if self.showStepsBox.GetValue():
+            self.uMap.updateMap()
 
         # Receive data from worker thread and update the display
         t = msg.data
         (steps, alive, rate) = t.split(',')
-        self.reportStats(int(steps), int(alive), int(rate))
+        if self.showStepsBox.GetValue() or int(steps)%10==0:
+            self.reportStats(int(steps), int(alive), int(rate))
   
         # Now tell the thread that the UI has been updated, so that it can continue.
         glob.UIdone.set()
@@ -295,9 +289,8 @@ class lifeFrame(wx.Frame):
 
     # Raise a flag indicating that the user wants the run to stop.
     def onPause(self, event):
-        if glob.workerRunning.isSet():     # Is worker even running?
-            self.pauseBtn.Disable()        # Will be re-enabled by recvRunDone
-            glob.stopWorker.set()          # Tell worker to stop.
+        self.pauseBtn.Disable()        # Will be re-enabled by recvRunDone
+        glob.stopWorker.set()          # Tell worker to stop.
         
     # Handle the menu choice to load a file into the maps.
     def onMenuLoad(self, event):
@@ -337,9 +330,9 @@ class lifeFrame(wx.Frame):
                 self.reportMessage(format("Cannot save current data in file '%s'." % pathname))
 
 # Small UI functions
-    def reportStats(self, steps, Alive, rate):
+    def reportStats(self, steps, alive, rate):
         self.statusBar.SetStatusText(format("%d steps"%steps), 1)
-        self.statusBar.SetStatusText(format("%d cells"%self.uMap.map.getNumAlive()), 2)
+        self.statusBar.SetStatusText(format("%d cells"%alive), 2)
         self.statusBar.SetStatusText(format("%d steps/second"%rate), 4)
 
     def reportMessage(self, text):

@@ -1,0 +1,72 @@
+PyLife: Documentation
+
+Contents:
+* Introduction
+* Software structure
+* Termination Detection
+* Event synchronization
+* Performance considerations
+* File formats
+
+
+Introduction:
+
+"PyLife" is an implentation of Conway's Game of Life, using Python and wxPython.
+Although the primary objective of this was personal development - specifically in
+wxPython - an attempt was made to create a more sophisticated implementation of
+Life than some of the implementations available. Particularly, the UI was designed
+to maximize ease of use.
+
+As a learning tool, and as an example of certain Python and wxPython features,
+this program demonstrates these uncommon features:
+* Threading to allow the UI to interrupt computation
+* Event synchronization via semaphores and PubSub 
+* A user control to limit the rate of new generations, with a heuristic that dynamically adapts the delay time to the perforance of the computer
+* Options to automatically stop when all cells have died, or when the remaining cell pattern has stopped changing, or is repeating itself in a short period.
+
+
+Structure:
+
+The code exists in five modules. Two of them are trivial: a module for four global variables (I know, ewww...) and another for a few constants. The other four include 99% of the code, including the 20% of the code which is tests. The three non-test modules are the three layers of code, structured so that the map UI and the map data structures can each be replaced with minimal effort and risk:
+* "User Interface" - in quotes because part of the UI is implemented in the next module. This module includes the window, wx frame and its menus and status bar, the two wx panels, and all of the controls (buttons and other input widgets, which are all in one panel). The only UI piece not in this module is the map showing the cells.
+* Usermap - this is the part of the UI that shows the map to the user. It does not contain "truth" - that's in the remaining module. It contains methods to accept user input to the map, and methods to alter the user map.
+* Datamap - this contains the data about the living cells and empty spaces, and the methods used by this module and the others to implement the program.
+
+
+Desired Termination Detection:
+
+Several options enable the user to tell the program to terminate a run when certain conditions exist. One such condition is a lack of change from one generation the next. This is detected by default, and the run is stopped.
+
+Another condition that can be detected is repetition of the map - oscillation between one pattern and another. To simplify processing, after each generation has been computed an algorithm is used to assign a value to the current pattern. This value is stored until after the next generation. The same algorithm is used to compute a new value (a "hash") and the two hashes are compared. If they are the same, and this feature is in use, the run will terminate. 
+
+This method is not perfect, and some different patterns will have the same hash value, and processing will stop. In that situation, the user can continue by pressing "Run" again.
+
+
+Event Synchronization:
+
+A core feature of this program is the ability to "set life in motion," displaying each generation in succession, for many generations. While this is occurring, it is still necessary to accept user input, e.g. when the user clicks the "Pause" button. This requries multi-threading, which is a feature of Python.  
+
+When the user clicks "Run" the button handler spawns a thread to perform all of the "life" processing. This updates the internal datamap as well as the visible usermap. The latter is updated for each generation, which means that the "life-processing-thread" must wait until the UI has been updated. 
+
+So we have two events which must be synchronized. The first is the use of the "Pause" button. This is very simple: the button handler sets a flag, the semaphore "stopWorker". The thread checks the semaphore after each generation, and stops if it's set. Of course, the thread clears the semaphore as it exists.
+
+The second is slightly more complicated. The thread must tell the UI code to update the screen, and then wait for the update to complete. The UI must respond to the request for an update, and then tell the thread that the UI update is complete. Two mechanisms are used to implement this:
+1. When the thread wants the UI to update, it uses the PubSub system to send a message to the UI. The UI has registered a particular event handler with that specific message ("stepdone"). 
+2. After sending the message, the thread waits for the semaphore "UIdone.wait" to be set. When it has been set, the thread continues to the next generation.
+
+
+To Display or Not To Display...
+
+By default, the program displays each generation. It wouldn't be much fun if you couldn't watch the gliders glide, would it?
+
+But maybe you want to see if a specific pattern ever becomes static. The current implementation spends most of its time updating the usermap. To improve performance, the user can turn off "Show each step." The program will update the counters in the status bar, but will not update the map for each generation. The performance increase has been measured at 5x.
+
+
+File Formats:
+
+This implementation supports the storage of life maps in files. The user can load an existing map from a file, and can save the current map into a file. Currently, one file format is stored: an ASCII representation of the map.
+
+A popular format for storing life maps is RLE (Run Length Encoded) which greatly compresses typical life maps. Another popular file format is MCL, which adds other directives to the map, wuch as cell coloring, and an indication that the map should wrap. Adding support for these file formats would be simple.
+
+
+

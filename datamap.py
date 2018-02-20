@@ -81,7 +81,7 @@ class datamap():
 
 
     # Run many iterations/generations.
-    def dRunMany(self, stopAfterSteps, stopWhenStill, stopWhenOscillators, showCorpses, showSteps, speedGoal):
+    def dRunMany(self, stopAfterSteps, stopWhenStill, stopWhenOscillators, showCorpses, speedGoal):
         # Data Initializations
         keepGoing=True  # Set to False when certain conditions are met.
         newHash=0       # Used to detect static map, possible with blinkers.
@@ -95,7 +95,6 @@ class datamap():
         stepSpeedMeasured=0
         result="completed"
         glob.stopWorker.clear()
-        glob.workerRunning.set()
     
         # We need to start with a "good guess" about the necessary delay to achieve 
         # the user's desired step rate.
@@ -126,12 +125,11 @@ class datamap():
                     delay = 1.1*delay
                     if speedGoal: print "Tuning delay up   to %0.4f." % delay
     
-            if showSteps==True:
-                # Clear the semaphore, send a msg to the UI, wait for it to finish its update.
-                glob.UIdone.clear()
-                msg=format("%d,%d,%d" % (glob.numSteps, self._numAlive, stepSpeedMeasured))
-                wx.CallAfter(Publisher().sendMessage, "stepdone", msg) # Tell GUI to refresh.
-                glob.UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
+            # Clear the semaphore, send a msg to the UI, wait for it to finish its update.
+            glob.UIdone.clear()
+            msg=format("%d,%d,%d" % (glob.numSteps, self._numAlive, stepSpeedMeasured))
+            wx.CallAfter(Publisher().sendMessage, "stepdone", msg) # Tell GUI to refresh.
+            glob.UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
     
             # Detect requested termination conditions, express same.
             if glob.stopWorker.isSet():

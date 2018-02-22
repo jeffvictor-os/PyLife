@@ -9,23 +9,10 @@ Created on Feb 1, 2018
 # The code also serves as an intermediate layer between the high level logic and 
 # the data structure that stores map state.
 
-# pylife-sepfuncs.py: separate into 4 modules:
-# 1. Frame and Control panel
-# 2. Map presentation
-# 3. Data representation
-# 4. Globals
-
 import wx.grid
-import threading
-from wx.lib.pubsub import Publisher
 import constants as const
 import globals as glob
 import datamap as data
-
-#stopWorker=threading.Event()     # True:=User pressed Pause button.
-#workerRunning=threading.Event()  # True:=Worker thread is running.
-#UIdone=threading.Event()         # After a step, Worker waits until this is set.
-
 
 class userMap(wx.grid.Grid):
     def __init__(self, *args, **kw):
@@ -84,4 +71,4 @@ class userMap(wx.grid.Grid):
         
 
 if __name__ == '__main__':
-    print "Use this module with pylife"
+    print "This module should only be used with pylife.py"

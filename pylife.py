@@ -11,9 +11,10 @@ Created on Feb 1, 2018
 
 
 import wx
+import wx.adv 
 import wx.grid
+from wx.lib.pubsub import pub
 import threading
-from wx.lib.pubsub import Publisher
 import constants as const
 import globals as glob
 import datamap as data
@@ -133,8 +134,8 @@ class lifeFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onPause, self.pauseBtn)
         self.pauseBtn.Disable()
         self.runPauseSizer       = wx.BoxSizer(wx.HORIZONTAL)
-        self.runPauseSizer.Add(self.runManyBtn, 0, wx.RIGHT|wx.CENTER, 5)
-        self.runPauseSizer.Add(self.pauseBtn, 0, wx.RIGHT|wx.CENTER, 5)
+        self.runPauseSizer.Add(self.runManyBtn, 0, wx.RIGHT|wx.CENTER, 7)
+        self.runPauseSizer.Add(self.pauseBtn, 0, wx.RIGHT|wx.CENTER, 7)
 
         # Buttons to reset the counters and to clear all cells.
         self.resetStepBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Reset Steps')
@@ -142,8 +143,8 @@ class lifeFrame(wx.Frame):
         self.clearMapBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Clear Map')
         self.Bind(wx.EVT_BUTTON, self.onClearMap, self.clearMapBtn)
         self.resetClearSizer       = wx.BoxSizer(wx.HORIZONTAL)
-        self.resetClearSizer.Add(self.resetStepBtn, 0, wx.ALL, 5)
-        self.resetClearSizer.Add(self.clearMapBtn, 0, wx.ALL, 5)
+        self.resetClearSizer.Add(self.resetStepBtn, 1, wx.RIGHT|wx.CENTER, 7)
+        self.resetClearSizer.Add(self.clearMapBtn, 1, wx.RIGHT|wx.CENTER, 7)
         
         # Now layout all of the controls and sizers.
         self.ctrlSizer.Add(self.oneStepSizer,   0,       wx.ALL|wx.CENTER, 5)
@@ -162,8 +163,8 @@ class lifeFrame(wx.Frame):
         self.SetSizer(self.mainSizer)
         self.mainSizer.Fit(self)
 
-        Publisher().subscribe(self.recvRunDone,  "rundone") # Worker sends this at end of a run.
-        Publisher().subscribe(self.recvStepDone, "stepdone") # Worker sends this after each step.
+        pub.subscribe(self.recvRunDone,  "rundone") # Worker sends this at end of a run.
+        pub.subscribe(self.recvStepDone, "stepdone") # Worker sends this after each step.
 
 
 # Event Handlers
@@ -175,11 +176,11 @@ class lifeFrame(wx.Frame):
 
     def onAbout(self, event):
         description="Conway's Game of Life simulates growth and death of cells."
-        self.aboutInfo = wx.AboutDialogInfo()
+        self.aboutInfo = wx.adv.AboutDialogInfo()
         self.aboutInfo.SetName('PyLife')
         self.aboutInfo.SetDescription(description)
         self.aboutInfo.AddDeveloper('Jeff Victor')
-        wx.AboutBox(self.aboutInfo)
+        wx.adv.AboutBox(self.aboutInfo)
 
     def onHelp(self, event):
         wx.MessageBox('PyLife is an implementation of Conway\'s Game of Life.\n\
@@ -243,17 +244,13 @@ class lifeFrame(wx.Frame):
         # What features did the user request?
         stopStill       =self.runStillBox.GetValue()
         stopOscillators =self.runOscillatorsBox.GetValue()
-        showSteps       =self.showStepsBox.GetValue()
 
         self.pauseBtn.Enable()
         thrRunMany = threading.Thread(target=self.uMap.uRunMany,args=(stopSteps, stopStill, stopOscillators, self.showCorpsesBox.GetValue(), speedGoal)) 
         thrRunMany.start()
 
     # After the run completes, the thread pub's a msg that causes recvRunDone to run.
-    def recvRunDone(self, msg):        
-        t = msg.data
-        (steps, alive, rate, result) = t.split(',')
-        
+    def recvRunDone(self, steps, alive, rate, result):        
         self.pauseBtn.Disable()
         self.reportMessage(format("The run %s."%result))
         self.reportStats(int(steps), int(alive), int(rate))
@@ -261,14 +258,12 @@ class lifeFrame(wx.Frame):
         self.runManyBtn.Enable()
         
     # The run-worker thread sends one message per generation, running this.
-    def recvStepDone(self, msg):
+    def recvStepDone(self, steps, alive, rate):
         # Update the visible map from the map data.
         if self.showStepsBox.GetValue():
             self.uMap.updateMap()
 
         # Receive data from worker thread and update the display
-        t = msg.data
-        (steps, alive, rate) = t.split(',')
         if self.showStepsBox.GetValue() or int(steps)%10==0:
             self.reportStats(int(steps), int(alive), int(rate))
   
@@ -341,7 +336,7 @@ class lifeFrame(wx.Frame):
         
 
 if __name__ == '__main__':
-    app = wx.PySimpleApp()
+    app = wx.App()
     lFrame = lifeFrame()
     lFrame.Show()
     app.MainLoop()

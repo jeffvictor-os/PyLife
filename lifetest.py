@@ -14,13 +14,17 @@ import globals as glob
 
 class TestPyLife(unittest.TestCase):
     def setUp(self):
-        self.app = wx.PySimpleApp()
+        self.app = wx.App()
         self.lFrame = pylife.lifeFrame()
         self.lFrame.Show()
 
     def tearDown(self):
-        wx.CallAfter(self.app.Exit)
+        for tlw in wx.GetTopLevelWindows():
+            if tlw:
+                tlw.Close(force=True)
+        wx.WakeUpIdle()
         self.app.MainLoop()
+        del self.app
 
     def test_reportMessage(self):
         self.lFrame.reportMessage("Message")

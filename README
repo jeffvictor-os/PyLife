@@ -12,13 +12,10 @@ Contents:
 Introduction:
 
 "PyLife" is an implentation of Conway's Game of Life, using Python and wxPython.
-Although the primary objective of this was personal development - specifically in
-wxPython - an attempt was made to create a more sophisticated implementation of
-Life than some of the implementations available. Particularly, the UI was designed
-to maximize ease of use.
 
-As a learning tool, and as an example of certain Python and wxPython features,
-this program demonstrates these uncommon features:
+Although the primary objective of this was personal development - specifically learning wxPython - an attempt was made to create a more sophisticated implementation of Life than some of the implementations available. Particularly, the UI was designed to maximize ease of use.
+
+As a learning tool, and as an example of certain Python and wxPython features, this program demonstrates these uncommon features:
 * Threading to allow the UI to interrupt computation
 * Event synchronization via semaphores and PubSub 
 * A user control to limit the rate of new generations, with a heuristic that dynamically adapts the delay time to the perforance of the computer
@@ -28,9 +25,9 @@ this program demonstrates these uncommon features:
 Structure:
 
 The code exists in five modules. Two of them are trivial: a module for four global variables (I know, ewww...) and another for a few constants. The other four include 99% of the code, including the 20% of the code which is tests. The three non-test modules are the three layers of code, structured so that the map UI and the map data structures can each be replaced with minimal effort and risk:
-* "User Interface" - in quotes because part of the UI is implemented in the next module. This module includes the window, wx frame and its menus and status bar, the two wx panels, and all of the controls (buttons and other input widgets, which are all in one panel). The only UI piece not in this module is the map showing the cells.
-* Usermap - this is the part of the UI that shows the map to the user. It does not contain "truth" - that's in the remaining module. It contains methods to accept user input to the map, and methods to alter the user map.
-* Datamap - this contains the data about the living cells and empty spaces, and the methods used by this module and the others to implement the program.
+* pylife: most of the user interface - This module includes the window, wx frame and its menus and status bar, the two wx panels, and all of the controls (buttons and other input widgets, which are all in one panel). The only UI piece not in this module is the map showing the cells.
+* usermap - this is the part of the UI that shows the map to the user. It does not contain "truth" - that's in the remaining module. It contains methods to accept user input to the map, and methods to alter the user map.
+* datamap - this contains the data about the living cells and empty spaces, and the methods used by this module and the others to implement the program.
 
 
 Desired Termination Detection:
@@ -57,14 +54,16 @@ The second is slightly more complicated. The thread must tell the UI code to upd
 
 To Display or Not To Display...
 
-By default, the program displays each generation. It wouldn't be much fun if you couldn't watch the gliders glide, would it?
+By default, the program displays each generation. It wouldn't be much fun if you couldn't watch the gliders glide, would it? :-)
 
-But maybe you want to see if a specific pattern ever becomes static. The current implementation spends most of its time updating the usermap. To improve performance, the user can turn off "Show each step." The program will update the counters in the status bar, but will not update the map for each generation. The performance increase has been measured at 5x.
+But maybe you want to see if a specific pattern ever becomes static. The current implementation spends most of its time updating the usermap. To improve performance, the user can turn off "Show each step." The program will update the counters in the status bar, but will not update the map for each generation. It will update the usermap at the end of the run. The performance increase has been measured at 5x.
 
 
 File Formats:
 
 This implementation supports the storage of life maps in files. The user can load an existing map from a file, and can save the current map into a file. Currently, one file format is stored: an ASCII representation of the map.
+
+Several samples are provided with the program, in the "Maps" directory.
 
 A popular format for storing life maps is RLE (Run Length Encoded) which greatly compresses typical life maps. Another popular file format is MCL, which adds other directives to the map, wuch as cell coloring, and an indication that the map should wrap. Adding support for these file formats would be simple.
 

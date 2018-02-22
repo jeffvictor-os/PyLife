@@ -7,18 +7,12 @@ Created on Feb 1, 2018
 # This module contains all of the code that manipulates the data structures
 # that store map state.
 
-# pylife-sepfuncs.py: separate into 4 modules:
-# 1. Frame and Control panel
-# 2. Map presentation
-# 3. Data representation
-# 4. Globals
-
 import wx
 import csv
 import time
 import timeit
 import threading
-from wx.lib.pubsub import Publisher
+from wx.lib.pubsub import pub
 import constants as const
 import globals as glob
 
@@ -127,8 +121,7 @@ class datamap():
     
             # Clear the semaphore, send a msg to the UI, wait for it to finish its update.
             glob.UIdone.clear()
-            msg=format("%d,%d,%d" % (glob.numSteps, self._numAlive, stepSpeedMeasured))
-            wx.CallAfter(Publisher().sendMessage, "stepdone", msg) # Tell GUI to refresh.
+            wx.CallAfter(pub.sendMessage, "stepdone", steps=glob.numSteps, alive=self._numAlive, rate=stepSpeedMeasured) # Tell GUI to refresh.
             glob.UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
     
             # Detect requested termination conditions, express same.
@@ -161,8 +154,7 @@ class datamap():
         elapsed=endTime-startTime
         speedMeasured=step/elapsed
 
-        msg=format("%d,%d,%d,%s" % (glob.numSteps, self._numAlive, speedMeasured, result))
-        wx.CallAfter(Publisher().sendMessage, "rundone", msg) # Tell GUI all steps are done.
+        wx.CallAfter(pub.sendMessage, "rundone", steps=glob.numSteps, alive=self._numAlive, rate=speedMeasured, result=result) # Tell GUI all steps are done.
         glob.stopWorker.clear()
         
 
@@ -229,4 +221,4 @@ class datamap():
         return (naybors)
 
 if __name__ == '__main__':
-    print "This module should only be used with pylifeui.py"
+    print "This module should only be used with pylife.py"

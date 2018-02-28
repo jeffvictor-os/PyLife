@@ -7,7 +7,7 @@ Contents:
 * Event synchronization
 * Performance considerations
 * File formats
-
+* Future
 
 Introduction:
 
@@ -20,6 +20,27 @@ As a learning tool, and as an example of certain Python and wxPython features, t
 * Event synchronization via semaphores and PubSub 
 * A user control to limit the rate of new generations, with a heuristic that dynamically adapts the delay time to the perforance of the computer
 * Options to automatically stop when all cells have died, or when the remaining cell pattern has stopped changing, or is repeating itself in a short period.
+
+Usage:
+
+PyLife is a windowed application. It uses wxPython, which can use either X Windows (including MacOS) or Microsoft Windows. You can download the Python modules from GitHub and run them directly on your personal computer, or you can download the modules to another computer and use a remote GUI.
+
+The modules are available at https://github.com/jeffvictor-os/PyLife.
+
+You can run the program by issuing the command "python pylife.py". 
+
+After the window appears, you will see two side-by-side panels. The left panel contains the user controls. The right panel contains the grid (map) of cells. It is empty at first. You can populate it with cells by clicking on cell locations, or by loading a file that contains a cell map. The latter feature is accessible through the normal File->Load... pull-down menu. If you downloaded the whole package from GitHub, you will see a directory (folder) named "Maps" that has a small selection of maps that you can load.
+
+After some cells exist on the map, you can watch one generation at a time, by clicking the "1-step" button. If you prefer to sit back and watch multiple generations occur, you can click the "Run" button. By default, the computer will display new generations as fast as possible, until all the cells have died, or until a similar repitition pattern occurs, or... forever.
+
+The controls panel offers the following additional features:
+- Stop after a specific number of generations
+- Limit the rate of new generations to a specific number
+- Display "corpses" - the locations where a cell existed during the previous generation
+- Clear the number of steps, or the map
+- Don't show each generation; this increases performance significantly.
+
+The "File" menu also includes a feature that allows you to save a map so that you can load it later and continue working with it.
 
 
 Structure:
@@ -66,6 +87,15 @@ This implementation supports the storage of life maps in files. The user can loa
 Several samples are provided with the program, in the "Maps" directory.
 
 A popular format for storing life maps is RLE (Run Length Encoded) which greatly compresses typical life maps. Another popular file format is MCL, which adds other directives to the map, wuch as cell coloring, and an indication that the map should wrap. Adding support for these file formats would be simple.
+
+
+Future:
+
+Potential future features that I am considering:
+- Increase the size of the "universe" without impacting performance by providing a "sliding window" that uses the current dimensions
+-- Include buttons to move the window
+-- Automatically slide the window if the center-of-life moves too much
+- Completely re-write the usermap to allow more cells in the window and faster generation rates
 
 
 

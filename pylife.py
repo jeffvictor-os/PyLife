@@ -18,8 +18,7 @@ import threading
 import constants as const
 import globals as glob
 import datamap as data
-import usermap 
-
+import usermap as user
 
 class lifeFrame(wx.Frame):
     def __init__(self):
@@ -34,18 +33,16 @@ class lifeFrame(wx.Frame):
 
         fileMenu = wx.Menu()
         menuBar.Append(fileMenu, "&File")
-        loadMenuItem = fileMenu.Append(wx.NewId(), "Load...", "Load a file")
+        loadMenuItem = fileMenu.Append(wx.NewId(), "&Load...", "Load a file")
         self.Bind(wx.EVT_MENU, self.onMenuLoad, loadMenuItem)
-        saveMenuItem = fileMenu.Append(wx.NewId(), "Save...", "Save a file")
+        saveMenuItem = fileMenu.Append(wx.NewId(), "&Save...", "Save a file")
         self.Bind(wx.EVT_MENU, self.onMenuSave, saveMenuItem)
-
- 
-        exitMenuItem = fileMenu.Append(wx.NewId(), "Exit", "Exit Life")
+        exitMenuItem = fileMenu.Append(wx.NewId(), "E&xit", "Exit Life")
         self.Bind(wx.EVT_MENU, self.onExit, exitMenuItem)
 
         helpMenu = wx.Menu()
-        aboutMenuItem = helpMenu.Append(wx.NewId(), "About...", "About Life")
-        usageMenuItem = helpMenu.Append(wx.NewId(), "Usage...", "Instructions")
+        aboutMenuItem = helpMenu.Append(wx.NewId(), "&About...", "About Life")
+        usageMenuItem = helpMenu.Append(wx.NewId(), "&Usage...", "Instructions")
         menuBar.Append(helpMenu, "&Help")
         self.Bind(wx.EVT_MENU, self.onAbout, aboutMenuItem)
         self.Bind(wx.EVT_MENU, self.onHelp, usageMenuItem)
@@ -53,8 +50,8 @@ class lifeFrame(wx.Frame):
         self.SetMenuBar(menuBar)
 
         # Status Bar
-        self.statusBar=self.CreateStatusBar(5)
-        self.statusBar.SetStatusWidths([200,100,75,75,150])
+        self.statusBar=self.CreateStatusBar(6)
+        self.statusBar.SetStatusWidths([225,100,75,75,150,75])
         self.statusBar.SetStatusText('Hello Life Form!')
 
         # Two panels: one for the controls, one for the grid.
@@ -83,7 +80,7 @@ class lifeFrame(wx.Frame):
         self.lifeSizer.Add(self.ltitleSizer, 0, wx.CENTER)
 
         # Instantiate the Map Presentation
-        self.uMap=usermap.userMap(self.lifePanel)
+        self.uMap=user.userMap(self.lifePanel)
         self.lifeSizer.Add(self.uMap, 0, wx.LEFT, 5)
 
         # Controls for the Control Panel
@@ -146,6 +143,30 @@ class lifeFrame(wx.Frame):
         self.resetClearSizer.Add(self.resetStepBtn, 1, wx.RIGHT|wx.CENTER, 7)
         self.resetClearSizer.Add(self.clearMapBtn, 1, wx.RIGHT|wx.CENTER, 7)
         
+        # Buttons to slide the window.
+        self.slideUpBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Up')
+        self.Bind(wx.EVT_BUTTON, self.onSlideUp, self.slideUpBtn)
+
+        self.slideLeftBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Left')
+        self.Bind(wx.EVT_BUTTON, self.onSlideLeft, self.slideLeftBtn)
+
+#       # Sizer not working correctly...
+#       self.slideCenterBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Center')
+#       self.Bind(wx.EVT_BUTTON, self.onSlideCenter, self.slideCenterBtn)
+
+        self.slideRightBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Right')
+        self.Bind(wx.EVT_BUTTON, self.onSlideRight, self.slideRightBtn)
+
+        self.slideDownBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Down')
+        self.Bind(wx.EVT_BUTTON, self.onSlideDown, self.slideDownBtn)
+        self.slideLRSizer       = wx.BoxSizer(wx.HORIZONTAL)
+        self.slideLRSizer.Add(self.slideLeftBtn,   0, wx.ALIGN_LEFT|wx.LEFT|wx.RIGHT|wx.EXPAND, 3)
+#       self.slideLRSizer.Add(self.slideCenterBtn, 0, wx.ALIGN_CENTER|wx.EXPAND, 0)
+        self.slideLRSizer.Add(self.slideRightBtn,  0, wx.ALIGN_RIGHT|wx.LEFT|wx.RIGHT|wx.EXPAND, 3)
+#       self.slideLRSizer.Add(self.slideLeftBtn,   1, 0, 0)
+#       self.slideLRSizer.Add(self.slideCenterBtn, 1, 0, 0)
+#       self.slideLRSizer.Add(self.slideRightBtn,  4, 0, 0)
+
         # Now layout all of the controls and sizers.
         self.ctrlSizer.Add(self.oneStepSizer,   0,       wx.ALL|wx.CENTER, 5)
         self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
@@ -158,6 +179,10 @@ class lifeFrame(wx.Frame):
         self.ctrlSizer.Add(self.runPauseSizer,   0,     wx.ALL|wx.CENTER, 5)
         self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
         self.ctrlSizer.Add(self.resetClearSizer,  0, wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(wx.StaticLine(self.ctrlPanel), 0, wx.ALL|wx.EXPAND, 5)
+        self.ctrlSizer.Add(self.slideUpBtn,  0, wx.ALL|wx.CENTER, 5)
+        self.ctrlSizer.Add(self.slideLRSizer,  0, wx.ALL|wx.CENTER, 1)
+        self.ctrlSizer.Add(self.slideDownBtn,  0, wx.ALL|wx.CENTER, 5)
 
         # Top level sizer.
         self.SetSizer(self.mainSizer)
@@ -169,10 +194,30 @@ class lifeFrame(wx.Frame):
 
 # Event Handlers
     def onExit(self, event):
-        self.closeProgram()
+        self.exitPyLife()
 
-    def closeProgram(self):
+    def exitPyLife(self):
         self.Close()
+
+    def onSlideUp(self, event):
+        self.uMap.slideUp(1)
+        self.reportOffset()
+
+    def onSlideLeft(self, event):
+        self.uMap.slideLeft(1)
+        self.reportOffset()
+
+    def onSlideCenter(self, event):
+        self.uMap.slideCenter()
+        self.reportOffset()
+
+    def onSlideRight(self, event):
+        self.uMap.slideRight(1)
+        self.reportOffset()
+
+    def onSlideDown(self, event):
+        self.uMap.slideDown(1)
+        self.reportOffset()
 
     def onAbout(self, event):
         description="Conway's Game of Life simulates growth and death of cells."
@@ -205,7 +250,7 @@ class lifeFrame(wx.Frame):
         self.reportMessage('')
         self.uMap.umapStep(self.showCorpsesBox.GetValue())  
         self.uMap.updateMap()  # Update visible map from data.
-        self.reportStats(glob.numSteps, self.uMap.map.getNumAlive(), 0)
+        self.reportStats(glob.numSteps, self.uMap.dMap.getNumAlive(), 0)
 
     # Handler of the Run button. It gathers inputs and spawns a worker thread
     # so that the UI, including the Pause button, can work during the run.
@@ -246,7 +291,9 @@ class lifeFrame(wx.Frame):
         stopOscillators =self.runOscillatorsBox.GetValue()
 
         self.pauseBtn.Enable()
-        thrRunMany = threading.Thread(target=self.uMap.uRunMany,args=(stopSteps, stopStill, stopOscillators, self.showCorpsesBox.GetValue(), speedGoal)) 
+        thrRunMany = threading.Thread(target=self.uMap.uRunMany,\
+                     args=(stopSteps, stopStill, stopOscillators,\
+                           self.showCorpsesBox.GetValue(), speedGoal, False)) 
         thrRunMany.start()
 
     # After the run completes, the thread pub's a msg that causes recvRunDone to run.
@@ -272,12 +319,12 @@ class lifeFrame(wx.Frame):
 
     def onResetSteps(self, event):
         glob.numSteps=0
-        self.reportStats(glob.numSteps, self.uMap.map.getNumAlive(), 0)
+        self.reportStats(glob.numSteps, self.uMap.dMap.getNumAlive(), 0)
 
     # Clear the visible map and the map data.
     def onClearMap(self, event):
         glob.numSteps=0
-        self.uMap.map.clearNumAlive()
+        self.uMap.dMap.clearNumAlive()
         self.uMap.clearMap()
         self.reportMessage('')
         self.reportStats(0, 0, 0)
@@ -299,12 +346,12 @@ class lifeFrame(wx.Frame):
             pathname = fileDialog.GetPath()
             try:
                 with open(pathname, 'r') as loadFile:
-                    # Load data into the datamap...
-                    self.uMap.map.loadDataFromFile(loadFile)
+                    # Load data into the usermap in the upper-left corner of the "window"...
+                    self.uMap.uLoadDataFromFile(loadFile, 0, 0)
                     # ...and then update the user's map.
                     self.uMap.updateMap()
                 self.reportMessage("The file has been loaded.")
-                self.reportStats(0, self.uMap.map.getNumAlive(), 0)
+                self.reportStats(0, self.uMap.dMap.getNumAlive(), 0)
             except IOError:
                 self.reportmessage(format("Cannot open file '%s'." % pathname))
 
@@ -319,7 +366,7 @@ class lifeFrame(wx.Frame):
             pathname = fileDialog.GetPath()
             try:
                 with open(pathname, 'w') as saveFile:
-                    self.uMap.map.saveDataToFile(saveFile)
+                    self.uMap.dMap.saveDataToFile(saveFile)
                 self.reportMessage("The file has been saved.")
             except IOError:
                 self.reportMessage(format("Cannot save current data in file '%s'." % pathname))
@@ -329,6 +376,9 @@ class lifeFrame(wx.Frame):
         self.statusBar.SetStatusText(format("%d steps"%steps), 1)
         self.statusBar.SetStatusText(format("%d cells"%alive), 2)
         self.statusBar.SetStatusText(format("%d steps/second"%rate), 4)
+
+    def reportOffset(self):
+        self.statusBar.SetStatusText(format("%d,%d"%self.uMap.getOffset()), 5)
 
     def reportMessage(self, text):
         self.statusBar.SetStatusText(text, 0)

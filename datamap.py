@@ -24,6 +24,9 @@ class datamap():
     def getNumAlive(self):
         return self._numAlive
 
+    def setNumAlive(self, qty):
+        self._numAlive=qty
+
     def incrNumAlive(self):
         self._numAlive += 1
         return self._numAlive
@@ -38,13 +41,25 @@ class datamap():
 
     # These funcs are used by the UI to get/set the status of a cell location.
     def getContents(self, row, col):
+        if row<0 or row>=const.NUMROWS or col<0 or col>=const.NUMCOLS:
+            return const.EC
         return self.curMatrix[row][col]
 
     def setContents(self, row, col, value):
-        self.curMatrix[row][col]=value
+        if self.curMatrix[row][col]==const.EC and value==const.AC:
+            self.incrNumAlive()
+        if self.curMatrix[row][col]==const.AC and (value==const.EC or value==const.DC):
+            self.decrNumAlive()
+        if row>=0 and row<=const.NUMROWS and col>=0 and col<=const.NUMCOLS:
+            self.curMatrix[row][col]=value
+
+    def clearMap(self):
+        for row in range(const.NUMROWS):
+            for col in range(const.NUMCOLS):
+                self.setContents(row, col, const.EC)
 
     # Load data from a file into the in-memory map.
-    def loadDataFromFile(self, loadFile):
+    def dLoadDataFromFile(self, loadFile, startRow, startCol):
         self._numAlive=0
         rownum=-1
         lreader = csv.reader(loadFile)
@@ -53,12 +68,13 @@ class datamap():
             if rownum>=const.NUMROWS:   # Safely handle oversized files.
                 break;
             for col in range(const.NUMCOLS):
-                self.curMatrix[rownum][col]='' # Default value...
-                if col<len(row):                     # ..handles undersized lines.
-                    if row[col] != '0':
-                        if row[col]==const.AC:
-                            self._numAlive+=1
-                            self.curMatrix[rownum][col]=row[col]
+                if startRow+rownum <const.NUMROWS and startCol+col<const.NUMCOLS:
+                    self.curMatrix[rownum+startRow][col+startCol]='' # Default value...
+                    if col<len(row):                     # ..handles undersized lines.
+                        if row[col] != '0':
+                            if row[col]==const.AC:
+                                self._numAlive+=1
+                                self.curMatrix[rownum+startRow][col+startCol]=row[col]
 
     # Save data from the in-memory map to a file in CSV format.
     def saveDataToFile(self, saveFile):
@@ -75,7 +91,22 @@ class datamap():
 
 
     # Run many iterations/generations.
-    def dRunMany(self, stopAfterSteps, stopWhenStill, stopWhenOscillators, showCorpses, speedGoal):
+    # This one is long because of the amount of state that's maintained, so here are
+    # some tips:
+    #  Arguments:
+    # stopAfterSteps      : if >0, only perform the specified number of generations
+    # stopWhenStill       : if != 0, only run until the map stops changing
+    # stopWhenOscillators : if != 0, only run until oscillators exist
+    # showCorpses  : if != 0, display the empty cells that were alive in the previous generation
+    # speedGoal    : slow the rate of generations to a desired amount
+    # batch: True:  run until done and return, do not synchronize with the UI (used for test)
+    #      : False: while running, inform the UI after every generation, and at the end.
+    #
+    # The "hash" variables are an attempt to detect oscillators with little effort. 
+    # They remember the state of a few previous generations, boiled down to one integer.
+    # This method occasionally concludes that two near-consecutive generations are identical
+    # when they aren't.
+    def dRunMany(self, stopAfterSteps, stopWhenStill, stopWhenOscillators, showCorpses, speedGoal, batch):
         # Data Initializations
         keepGoing=True  # Set to False when certain conditions are met.
         newHash=0       # Used to detect static map, possible with blinkers.
@@ -85,6 +116,7 @@ class datamap():
         oldHash4=0      # Used to detect blinkers.
         step=1          # To limit steps, and to time perf samples.
         speedMeasured=0 # Stores rate of generations
+        lifeTime=0      # Time spend in lifeStep, across the whole run
     
         stepSpeedMeasured=0
         result="completed"
@@ -105,7 +137,9 @@ class datamap():
     
         # Main loop
         while keepGoing:
+            lifeStartTime=1.0*timeit.default_timer()
             newHash=self.lifeStep(showCorpses)  # Actually "live" for a step. :-)
+            lifeTime += (1.0*timeit.default_timer()) - lifeStartTime
     
             if step % 10 == 0:    # If using a rate cap, tune the delay.
                 stepEndTime=1.0*timeit.default_timer()
@@ -120,9 +154,10 @@ class datamap():
                     if speedGoal: print "Tuning delay up   to %0.4f." % delay
     
             # Clear the semaphore, send a msg to the UI, wait for it to finish its update.
-            glob.UIdone.clear()
-            wx.CallAfter(pub.sendMessage, "stepdone", steps=glob.numSteps, alive=self._numAlive, rate=stepSpeedMeasured) # Tell GUI to refresh.
-            glob.UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
+            if batch==False:
+                glob.UIdone.clear()
+                wx.CallAfter(pub.sendMessage, "stepdone", steps=glob.numSteps, alive=self._numAlive, rate=stepSpeedMeasured) # Tell GUI to refresh.
+                glob.UIdone.wait()  # Wait for recvStepDone to signal completion of refresh.
     
             # Detect requested termination conditions, express same.
             if glob.stopWorker.isSet():
@@ -154,14 +189,15 @@ class datamap():
         elapsed=endTime-startTime
         speedMeasured=step/elapsed
 
-        wx.CallAfter(pub.sendMessage, "rundone", steps=glob.numSteps, alive=self._numAlive, rate=speedMeasured, result=result) # Tell GUI all steps are done.
-        glob.stopWorker.clear()
+        if batch==False:
+            wx.CallAfter(pub.sendMessage, "rundone", steps=glob.numSteps, alive=self._numAlive, rate=speedMeasured, result=result) # Tell GUI all steps are done.
+            glob.stopWorker.clear()
         
 
     # "Live" for one generation.
     def lifeStep(self, showCorpses):
         glob.numSteps += 1
-        lifeHash=0    # Used to detect map that's static, possible with blinkers.
+        lifeHash=0       # Used to detect map that's static, possible with blinkers.
     
         nextMat=[['' for x in range(const.NUMROWS)] for y in range(const.NUMCOLS)]
     
@@ -173,19 +209,19 @@ class datamap():
             for col in range(0,const.NUMCOLS):
                 naybors=self.sumNaybors(row, col)
                 currentCell= self.curMatrix[row][col]
-                if currentCell == const.AC:                # Was alive
+                if currentCell == const.AC:              # Was alive
                     if naybors<2 or naybors>3:
-                        nextMat[row][col]=corpse     # Died.
+                        nextMat[row][col]=corpse         # Died.
                         self._numAlive -= 1
                     else:
-                        nextMat[row][col]=const.AC         # Still alive
-                else:                                # Was dead
+                        nextMat[row][col]=const.AC       # Still alive
+                else:                                    # Was dead
                     if naybors==3:
-                        nextMat[row][col]=const.AC         # New cell
+                        nextMat[row][col]=const.AC       # New cell
                         self._numAlive   += 1
                     else:
-                        nextMat[row][col]=const.EC         # Still dead
-    
+                        nextMat[row][col]=const.EC       # Still dead
+
         # ...then copy the new map into the UI map so someone else can refresh the UI.
         for row in range(const.NUMROWS):
             for col in range(const.NUMCOLS):

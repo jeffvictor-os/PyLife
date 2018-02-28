@@ -17,57 +17,103 @@ import datamap as data
 class userMap(wx.grid.Grid):
     def __init__(self, *args, **kw):
         wx.grid.Grid.__init__(self, *args, **kw)
-        self.CreateGrid(const.NUMROWS, const.NUMCOLS)
+        self.CreateGrid(const.VIEWROWS, const.VIEWCOLS)
 
         self.EnableGridLines(False) # Hide grid lines.
         self.SetColLabelSize(0)     # Hide column labels.
         self.SetDefaultCellAlignment(wx.ALIGN_CENTER, wx.ALIGN_CENTER)
         self.SetRowLabelSize(0)     # Hide row labels.
-        self.SetDefaultColSize(3, resizeExistingCols=True)
-        self.SetDefaultRowSize(5, resizeExistingRows=False)
-        for r in range(const.NUMROWS):    # Prevent user from entering data.
-            for c in range(const.NUMCOLS):
+        self.SetDefaultColSize(3, resizeExistingCols=False)
+        self.SetDefaultRowSize(3, resizeExistingRows=False)
+        for r in range(const.VIEWROWS):    # Prevent user from entering data.
+            for c in range(const.VIEWCOLS):
                 self.SetReadOnly(r, c, True)
         self.Bind(wx.grid.EVT_GRID_CELL_LEFT_CLICK, self.onCellLeftClick)
 
         # Create the data structure that is the "real" map.
-        self.map=data.datamap()
+        self.dMap=data.datamap()
+        self._offsetR=(const.NUMROWS-const.VIEWROWS)/2   # Offset is distance from 
+        self._offsetC=(const.NUMCOLS-const.VIEWCOLS)/2   # edge to top-right corner
  
     # Update the userMap from the underlying data structure.
     def updateMap(self):
-        for row in range(const.NUMROWS):
-            for col in range(const.NUMCOLS):
-                self.SetCellValue(row, col, self.map.getContents(row, col))        
-           
+        for row in range(const.VIEWROWS):
+            for col in range(const.VIEWCOLS):
+                self.SetCellValue(row, col, self.dMap.getContents(row+self._offsetR, col+self._offsetC)) 
+ 
+    def getOffset(self):
+        return (self._offsetR, self._offsetC)
+
+    def slideUp(self, amount):
+        if self._offsetR > 0:
+            self._offsetR -= amount
+            self.updateMap()
+
+    def slideLeft(self, amount):
+        if self._offsetC > 0:
+            self._offsetC -= amount
+            self.updateMap()
+
+    def slideCenter(self):
+        self._offsetR=(const.NUMROWS-const.VIEWROWS)/2   # Offset is distance from 
+        self._offsetC=(const.NUMCOLS-const.VIEWCOLS)/2   # edge to top-right corner
+        self.updateMap()
+
+    def slideRight(self, amount):
+        if self._offsetC < (const.NUMCOLS-const.VIEWCOLS):
+            self._offsetC += amount
+            self.updateMap()
+
+    def slideDown(self, amount):
+        if self._offsetR < (const.NUMROWS-const.VIEWROWS):
+            self._offsetR += amount
+            self.updateMap()
+
+    def moveWindow(self, row, col):
+        self._offsetR=row
+        self._offsetC=col
+        self.updateMap()
+
+    def setCell(self, row, col, value):
+        self.SetCellValue(row, col, value)
+        self.dMap.setContents(row+self._offsetR, col+self._offsetC, value)
+
     def clearMap(self):
-        for row in range(const.NUMROWS):
-            for col in range(const.NUMCOLS):
-                if self.map.getContents(row, col) !=const.EC:  # Avoid unnecessary SetCellValue's.
-                    self.map.setContents(row, col, const.EC)
+        for row in range(const.VIEWROWS):
+            for col in range(const.VIEWCOLS):
+                # Minimize calls to SetCellValue.
+                if self.dMap.getContents(row+self._offsetR, col+self._offsetC) !=const.EC:  
                     self.SetCellValue(row, col, const.EC)
+        self.dMap.clearMap()    # Clear underlying datamap.
 
     # The UI supports single-step operation via this method.
     def umapStep(self, showCorpses):
-        self.map.lifeStep(showCorpses)
+        self.dMap.lifeStep(showCorpses)
 
     # This method is called when the user clicks on the map to create or destroy
     def onCellLeftClick(self, evt):
-        if self.map.getContents(evt.GetRow(), evt.GetCol()) == const.EC:
-            self.map.setContents(evt.GetRow(), evt.GetCol(), const.AC)
-            self.map.incrNumAlive()
-        elif self.map.getContents(evt.GetRow(), evt.GetCol()) == const.AC:
-            self.map.setContents(evt.GetRow(), evt.GetCol(), const.EC)
-            self.map.decrNumAlive()
-        else: #self.map.getContents(evt.GetRow(), evt.GetCol()) == const.DC:
-            self.map.setContents(evt.GetRow(), evt.GetCol(), const.EC)
-        self.SetCellValue(evt.GetRow(), evt.GetCol(), self.map.getContents(evt.GetRow(), evt.GetCol()))
+        dataR=evt.GetRow()+self._offsetR
+        dataC=evt.GetCol()+self._offsetC
 
-        wx.GetTopLevelParent(self).reportStats(glob.numSteps, self.map.getNumAlive(), 0)
+        if self.dMap.getContents(dataR, dataC) == const.EC:
+            self.dMap.setContents(dataR, dataC, const.AC)
+        elif self.dMap.getContents(dataR, dataC) == const.AC:
+            self.dMap.setContents(dataR, dataC, const.EC)
+        else: #self.dMap.getContents(dataR, dataC) == const.DC:
+            self.dMap.setContents(dataR, dataC, const.EC)
+        self.SetCellValue(evt.GetRow(), evt.GetCol(), self.dMap.getContents(dataR, dataC))
+
+        wx.GetTopLevelParent(self).reportStats(glob.numSteps, self.dMap.getNumAlive(), 0)
         evt.Skip()
 
+    # This method loads a file into the datamap so that it appears in the usermap.
+    # applies the sliding window to the request to load a mapfile.
+    def uLoadDataFromFile(self, loadFile, row, col):
+        self.dMap.dLoadDataFromFile (loadFile, row+self._offsetR, col+self._offsetC)
+
     # This method merely provides separation between the UI and the datamap module.
-    def uRunMany(self, stopSteps, stopStill, stopOscillators, showCorpsesBox, speedGoal):
-        self.map.dRunMany(stopSteps, stopStill, stopOscillators, showCorpsesBox, speedGoal)
+    def uRunMany(self, stopSteps, stopStill, stopOscillators, showCorpsesBox, speedGoal, batch):
+        self.dMap.dRunMany(stopSteps, stopStill, stopOscillators, showCorpsesBox, speedGoal, batch)
         
 
 if __name__ == '__main__':

@@ -32,8 +32,11 @@ class datamap():
         return self._numAlive
 
     def decrNumAlive(self):
-        self._numAlive -= 1
-        return self._numAlive
+        if self._numAlive >0:
+            self._numAlive -= 1
+            return self._numAlive
+        else:
+            print "Error: Attempt to decrement numAlive below 0."
 
     def clearNumAlive(self):
         self._numAlive = 0
@@ -52,11 +55,6 @@ class datamap():
             self.decrNumAlive()
         if row>=0 and row<=const.NUMROWS and col>=0 and col<=const.NUMCOLS:
             self.curMatrix[row][col]=value
-
-    def clearMap(self):
-        for row in range(const.NUMROWS):
-            for col in range(const.NUMCOLS):
-                self.setContents(row, col, const.EC)
 
     # Load data from a file into the in-memory map.
     def dLoadDataFromFile(self, loadFile, startRow, startCol):
@@ -106,6 +104,7 @@ class datamap():
     # They remember the state of a few previous generations, boiled down to one integer.
     # This method occasionally concludes that two near-consecutive generations are identical
     # when they aren't.
+    #
     def dRunMany(self, stopAfterSteps, stopWhenStill, stopWhenOscillators, showCorpses, speedGoal, batch):
         # Data Initializations
         keepGoing=True  # Set to False when certain conditions are met.

@@ -47,11 +47,13 @@ class userMap(wx.grid.Grid):
     def slideUp(self, amount):
         if self._offsetR > 0:
             self._offsetR -= amount
+            if self._offsetR <0: self._offsetR=0
             self.updateMap()
 
     def slideLeft(self, amount):
         if self._offsetC > 0:
             self._offsetC -= amount
+            if self._offsetC <0: self._offsetC=0
             self.updateMap()
 
     def slideCenter(self):
@@ -83,8 +85,7 @@ class userMap(wx.grid.Grid):
             for col in range(const.VIEWCOLS):
                 # Minimize calls to SetCellValue.
                 if self.dMap.getContents(row+self._offsetR, col+self._offsetC) !=const.EC:  
-                    self.SetCellValue(row, col, const.EC)
-        self.dMap.clearMap()    # Clear underlying datamap.
+                    self.setCell(row, col, const.EC)
 
     # The UI supports single-step operation via this method.
     def umapStep(self, showCorpses):
@@ -101,6 +102,7 @@ class userMap(wx.grid.Grid):
             self.dMap.setContents(dataR, dataC, const.EC)
         else: #self.dMap.getContents(dataR, dataC) == const.DC:
             self.dMap.setContents(dataR, dataC, const.EC)
+
         self.SetCellValue(evt.GetRow(), evt.GetCol(), self.dMap.getContents(dataR, dataC))
 
         wx.GetTopLevelParent(self).reportStats(glob.numSteps, self.dMap.getNumAlive(), 0)

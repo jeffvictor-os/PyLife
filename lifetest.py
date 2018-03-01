@@ -29,6 +29,7 @@ class TestPyLife(unittest.TestCase):
         del self.app
 
     def test_numAlive(self):
+        self.lFrame.uMap.clearMap()
         dMap=self.lFrame.uMap.dMap
         dMap.setNumAlive(5)
         dMap.incrNumAlive()
@@ -36,6 +37,8 @@ class TestPyLife(unittest.TestCase):
         dMap.decrNumAlive()
         self.assertEqual(5, dMap.getNumAlive())
         dMap.clearNumAlive()
+        self.assertEqual(0, dMap.getNumAlive())
+        dMap.decrNumAlive()                     # Test non-negative result.
         self.assertEqual(0, dMap.getNumAlive())
 
 #   def test_getCenter(self):
@@ -74,8 +77,13 @@ class TestPyLife(unittest.TestCase):
         self.assertEqual(uMap.GetCellValue(10, 11), const.AC)
         self.lFrame.onSlideRight(evt) 
         self.assertEqual(uMap.GetCellValue(10, 10), const.AC)
-
-        self.lFrame.uMap.slideUp(1000)  # Should be handled correctly.
+    
+        uMap.slideUp(1000)      # Should be handled correctly.
+        R,C=uMap.getOffset()
+        self.assertEqual(R, 0)
+        uMap.slideLeft(1000)      # Should be handled correctly.
+        R,C=uMap.getOffset()
+        self.assertEqual(C, 0)
        
     def test_on1Step(self):
         uMap=self.lFrame.uMap
@@ -89,7 +97,6 @@ class TestPyLife(unittest.TestCase):
         evt = wx.CommandEvent(wx.EVT_BUTTON.typeId)
         self.lFrame.onResetSteps(evt)
         self.assertEqual("0 steps", self.lFrame.statusBar.GetStatusText(1))
-
 
     def test_lifeStep(self):
         # Set a known pattern, and test the result of lifeStep.
@@ -119,8 +126,8 @@ class TestPyLife(unittest.TestCase):
         self.assertEqual(uMap.GetCellValue(3, 3), EC)
         
         
-    def test_loadDataFromFile(self):
-        # This test loads a known map-file, and verifies that the resulting map is "correct."
+    def test_loadDataFromFile(self):  # This should test file format problems.
+        # This test loads a known mapfile, and verifies that the resulting map is "correct."
         dMap=self.lFrame.uMap.dMap
         AC=const.AC
         EC=const.EC
@@ -140,7 +147,7 @@ class TestPyLife(unittest.TestCase):
         self.assertEqual(dMap.getContents(20, 20), AC)
         
     def test_saveDataToFile(self):
-        # This test loads a known map-file, saves it somewhere else, and then verifies the result.
+        # This test loads a known mapfile, saves it somewhere else, and then verifies the result.
         uMap=self.lFrame.uMap
         dMap=self.lFrame.uMap.dMap
         AC=const.AC
@@ -190,8 +197,7 @@ class TestPyLife(unittest.TestCase):
         self.lFrame.recvStepDone(steps, alive, rate)
         self.assertEqual(self.lFrame.statusBar.GetStatusText(1), "10 steps") 
         
-        
-    def test_onClearGrid(self):
+    def test_onClearMap(self):
         uMap=self.lFrame.uMap
         evt = wx.CommandEvent(wx.EVT_BUTTON.typeId)
         uMap.setCell(2, 2, const.AC)
@@ -203,9 +209,9 @@ class TestPyLife(unittest.TestCase):
         uMap.setCell(16, 19, const.AC)
 
         self.lFrame.onClearMap(evt)
-        self.assertEqual(uMap.GetCellValue(1, 1), const.EC)
+        self.assertEqual(uMap.GetCellValue(2, 2), const.EC)
         self.assertEqual(uMap.GetCellValue(2, 3), const.EC)
-        self.assertEqual(uMap.GetCellValue(6, 8), const.EC)
+        self.assertEqual(uMap.GetCellValue(16, 18), const.EC)
 
     def test_showCorpses(self):
         # Create a known pattern, step once, verify results, and repeat.

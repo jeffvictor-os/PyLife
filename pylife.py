@@ -150,10 +150,6 @@ class lifeFrame(wx.Frame):
         self.slideLeftBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Left')
         self.Bind(wx.EVT_BUTTON, self.onSlideLeft, self.slideLeftBtn)
 
-#       # Sizer not working correctly...
-#       self.slideCenterBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Center')
-#       self.Bind(wx.EVT_BUTTON, self.onSlideCenter, self.slideCenterBtn)
-
         self.slideRightBtn = wx.Button(self.ctrlPanel, wx.ID_ANY, 'Right')
         self.Bind(wx.EVT_BUTTON, self.onSlideRight, self.slideRightBtn)
 
@@ -161,11 +157,7 @@ class lifeFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onSlideDown, self.slideDownBtn)
         self.slideLRSizer       = wx.BoxSizer(wx.HORIZONTAL)
         self.slideLRSizer.Add(self.slideLeftBtn,   0, wx.ALIGN_LEFT|wx.LEFT|wx.RIGHT|wx.EXPAND, 3)
-#       self.slideLRSizer.Add(self.slideCenterBtn, 0, wx.ALIGN_CENTER|wx.EXPAND, 0)
         self.slideLRSizer.Add(self.slideRightBtn,  0, wx.ALIGN_RIGHT|wx.LEFT|wx.RIGHT|wx.EXPAND, 3)
-#       self.slideLRSizer.Add(self.slideLeftBtn,   1, 0, 0)
-#       self.slideLRSizer.Add(self.slideCenterBtn, 1, 0, 0)
-#       self.slideLRSizer.Add(self.slideRightBtn,  4, 0, 0)
 
         # Now layout all of the controls and sizers.
         self.ctrlSizer.Add(self.oneStepSizer,   0,       wx.ALL|wx.CENTER, 5)
@@ -324,7 +316,6 @@ class lifeFrame(wx.Frame):
     # Clear the visible map and the map data.
     def onClearMap(self, event):
         glob.numSteps=0
-        self.uMap.dMap.clearNumAlive()
         self.uMap.clearMap()
         self.reportMessage('')
         self.reportStats(0, 0, 0)

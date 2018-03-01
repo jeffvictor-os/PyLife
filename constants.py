@@ -13,3 +13,6 @@ AC='*'   # Alive Cell
 EC=''    # "Empty Cell"
 DC='-'   # Dead Cell
 
+if __name__ == '__main__':
+    print "This module should only be used with pylife.py"
+

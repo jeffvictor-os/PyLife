@@ -35,8 +35,6 @@ class datamap():
         if self._numAlive >0:
             self._numAlive -= 1
             return self._numAlive
-        else:
-            print "Error: Attempt to decrement numAlive below 0."
 
     def clearNumAlive(self):
         self._numAlive = 0

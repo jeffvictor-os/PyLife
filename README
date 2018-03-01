@@ -26,11 +26,20 @@ Usage:
 
 PyLife is a windowed application. It uses wxPython, which can use either X Windows (including MacOS) or Microsoft Windows. You can download the Python modules from GitHub and run them directly on your personal computer, or you can download the modules to another computer and use a remote GUI.
 
-The modules are available at https://github.com/jeffvictor-os/PyLife.
+The modules are available at https://github.com/jeffvictor-os/PyLife. It has been tested with CentOS 7, Python 2.7 and wxPython 2.8, and uses these packages:
+- python-pip  9.0.1
+- libgtk-3-dev  3.18.9
+- libgtkglext1-dev  1.2.0
+- libwebkitgtk-3.0-dev  2.4.11
+- libgstreamer1.0-dev  1.8.3
+- libgstreamer-plugins-base1.0-dev
+- gstreamer-tools  0.10.36
+- pypubsub 4.0.0
+
 
 You can run the program by issuing the command "python pylife.py". 
 
-After the window appears, you will see two side-by-side panels. The left panel contains the user controls. The right panel contains the grid (map) of cells. It is empty at first. You can populate it with cells by clicking on cell locations, or by loading a file that contains a cell map. The latter feature is accessible through the normal File->Load... pull-down menu. If you downloaded the whole package from GitHub, you will see a directory (folder) named "Maps" that has a small selection of maps that you can load.
+After the window appears, you will see two side-by-side panels. The left panel contains the user controls. The right panel contains the grid (map) of cells. It is empty at first. You can populate it with cells by clicking on cell locations, or by loading a file that contains a cell map. The latter feature is accessible through the typical File->Load... pull-down menu. If you downloaded the whole package from GitHub, you will see a directory (folder) named "Maps" that has a small selection of maps that you can load.
 
 After some cells exist on the map, you can watch one generation at a time, by clicking the "1-step" button. If you prefer to sit back and watch multiple generations occur, you can click the "Run" button. By default, the computer will display new generations as fast as possible, until all the cells have died, or until a similar repitition pattern occurs, or... forever.
 

@@ -131,7 +131,7 @@ class TestPyLife(unittest.TestCase):
         dMap=self.lFrame.uMap.dMap
         AC=const.AC
         EC=const.EC
-        pathname='loadtest.csv'
+        pathname='Maps/loadtest.csv'
         dMap.setContents(1, 1, AC)
         dMap.setContents(20, 20, EC)
         try:
@@ -152,7 +152,7 @@ class TestPyLife(unittest.TestCase):
         dMap=self.lFrame.uMap.dMap
         AC=const.AC
         EC=const.EC
-        loadpath='loadtest.csv'
+        loadpath='Maps/loadtest.csv'
         savepath='/tmp/pylifesavetest.csv'
         uMap.moveWindow(0, 0)
         uMap.setCell(1, 1, AC)
